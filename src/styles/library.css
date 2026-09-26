@@ -1045,6 +1045,9 @@
 .library-shell .kept-api-key .text-button {
   color: #d8b49f;
 }
+.library-shell .title-untitled-button {
+  color: #a9c18c;
+}
 .library-shell .shortcut-keys kbd {
   background: var(--paper);
   color: var(--ink);

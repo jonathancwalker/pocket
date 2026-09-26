@@ -415,6 +415,7 @@ impl Store {
             "random_idea" => self.random_idea(&input),
             "get_idea" => Ok(serde_json::to_value(self.idea(string(&input, "id")?)?)?),
             "update_content" => self.update(&input),
+            "untitled_title_candidates" => self.untitled_title_candidates(),
             "set_generated_title" => self.set_generated_title(&input),
             "set_title_status" => self.set_title_status(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
@@ -1003,6 +1004,22 @@ impl Store {
         )?;
         Ok(serde_json::to_value(self.idea(idea_id)?)?)
     }
+    fn untitled_title_candidates(&self) -> Result<Value> {
+        let ids = {
+            let mut statement = self.conn.prepare(
+                "SELECT id FROM ideas WHERE title='Untitled' AND TRIM(capture_text) <> '' ORDER BY created_at DESC",
+            )?;
+            let ids = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids
+        };
+        let ideas = ids
+            .iter()
+            .map(|id| self.idea(id))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(serde_json::to_value(ideas)?)
+    }
     fn set_title_status(&mut self, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
         let expected = string(input, "expectedTitle")?;
@@ -1275,6 +1292,20 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(fallback["titleStatus"], "fallback");
+    }
+    #[test]
+    fn untitled_title_candidates_exclude_ideas_that_are_already_named() {
+        let mut s = Store::memory();
+        let untitled_draft = filled(&mut s, "an old idea worth naming");
+        let untitled = s.commit(untitled_draft).unwrap();
+        let named_draft = filled(&mut s, "an already named idea");
+        let _named = s.commit(named_draft).unwrap();
+        s.conn
+            .execute("UPDATE ideas SET title='Untitled' WHERE id=?1", [&untitled.id])
+            .unwrap();
+        let candidates = s.untitled_title_candidates().unwrap();
+        assert_eq!(candidates.as_array().unwrap().len(), 1);
+        assert_eq!(candidates[0]["id"], untitled.id);
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {

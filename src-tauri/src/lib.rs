@@ -594,6 +594,46 @@ async fn generate_capture_title(
     Ok(saved)
 }
 #[tauri::command]
+async fn generate_untitled_titles(
+    window: WebviewWindow,
+    app: AppHandle,
+    db: State<'_, Database>,
+) -> Result<Value> {
+    authorize(&window, true)?;
+    let candidates = db.call("untitled_title_candidates", Value::Null).await?;
+    let title_settings_path = app.state::<Runtime>().title_settings_path.clone();
+    let mut titled = 0;
+    let mut failed = 0;
+    for idea in candidates.as_array().into_iter().flatten() {
+        let (Some(id), Some(title), Some(capture), Some(revision)) = (
+            idea["id"].as_str(),
+            idea["title"].as_str(),
+            idea["captureText"].as_str(),
+            idea["revision"].as_i64(),
+        ) else {
+            continue;
+        };
+        match titles::generate(&title_settings_path, capture).await {
+            Ok(generated) => {
+                let saved = db
+                    .call(
+                        "set_generated_title",
+                        json!({"id":id,"expectedTitle":title,"expectedRevision":revision,"title":generated}),
+                    )
+                    .await?;
+                if saved["title"].as_str() != Some(title) {
+                    titled += 1;
+                }
+            }
+            Err(_) => failed += 1,
+        }
+    }
+    if titled > 0 {
+        let _ = app.emit("library-changed", json!({"operation":"generate_untitled_titles"}));
+    }
+    Ok(json!({"titled":titled,"failed":failed}))
+}
+#[tauri::command]
 fn open_reference(window: WebviewWindow, app: AppHandle, url: String) -> Result<()> {
     authorize(&window, false)?;
     let valid = storage::reference(&uuid::Uuid::new_v4().to_string(), &url)?;
@@ -659,7 +699,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--background"])))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app,_,event| {handle_shortcut(app,event.state()==ShortcutState::Pressed);}).build())
-        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,title_key_status,save_title_key,clear_title_key,generate_capture_title,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
+        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,title_key_status,save_title_key,clear_title_key,generate_capture_title,generate_untitled_titles,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
             #[cfg(feature = "webdriver")]
             capture_surface
         ])
