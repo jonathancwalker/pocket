@@ -972,7 +972,7 @@ impl Store {
     }
     fn set_generated_title(&mut self, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
-        let expected = string(input, "expectedTitle")?;
+        let expected = input.get("expectedTitle").and_then(Value::as_str);
         let expected_revision = input["expectedRevision"]
             .as_i64()
             .ok_or_else(|| AppError::new("validation", "The generated title is not valid."))?;
@@ -984,7 +984,7 @@ impl Store {
             ));
         }
         let idea = self.idea(idea_id)?;
-        if idea.title.as_deref() != Some(expected) || idea.revision != expected_revision {
+        if idea.title.as_deref() != expected || idea.revision != expected_revision {
             return Ok(serde_json::to_value(idea)?);
         }
         let search = normalized(&format!(
@@ -1008,7 +1008,7 @@ impl Store {
         let ids = {
             let mut statement = self
                 .conn
-                .prepare("SELECT id FROM ideas WHERE title='Untitled' ORDER BY created_at DESC")?;
+                .prepare("SELECT id FROM ideas WHERE title IS NULL OR title='Untitled' ORDER BY created_at DESC")?;
             let ids = statement
                 .query_map([], |row| row.get::<_, String>(0))?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -1298,14 +1298,28 @@ mod tests {
         let mut s = Store::memory();
         let untitled_draft = filled(&mut s, "an old idea worth naming");
         let untitled = s.commit(untitled_draft).unwrap();
+        let blank_title_draft = filled(&mut s, "another old idea worth naming");
+        let blank_title = s.commit(blank_title_draft).unwrap();
         let named_draft = filled(&mut s, "an already named idea");
         let _named = s.commit(named_draft).unwrap();
         s.conn
             .execute("UPDATE ideas SET title='Untitled' WHERE id=?1", [&untitled.id])
             .unwrap();
+        s.conn
+            .execute("UPDATE ideas SET title=NULL WHERE id=?1", [&blank_title.id])
+            .unwrap();
         let candidates = s.untitled_title_candidates().unwrap();
-        assert_eq!(candidates.as_array().unwrap().len(), 1);
-        assert_eq!(candidates[0]["id"], untitled.id);
+        assert_eq!(candidates.as_array().unwrap().len(), 2);
+        assert!(candidates
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["id"] == untitled.id));
+        assert!(candidates
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["id"] == blank_title.id));
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {
