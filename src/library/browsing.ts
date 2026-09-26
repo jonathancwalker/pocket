@@ -3,7 +3,7 @@ import type { Filters, Idea } from '../types';
 
 export function previewOf(idea: Idea): string {
   const body = readableText(idea.body).trim();
-  const lines = (body || idea.captureText).trim().split('\n');
+  const lines = body.split('\n');
   if (
     idea.title?.trim() &&
     lines[0]?.trim().toLocaleLowerCase() === idea.title.trim().toLocaleLowerCase()

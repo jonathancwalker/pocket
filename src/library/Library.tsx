@@ -71,8 +71,7 @@ export default function Library() {
   const [error, setError] = useState(''),
     [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; undo?: () => Promise<void> } | null>(null),
-    [navBusy, setNavBusy] = useState(false),
-    [originOpen, setOriginOpen] = useState(false);
+    [navBusy, setNavBusy] = useState(false);
   const current = useRef<Idea | null>(null),
     editVersion = useRef(0),
     savedVersion = useRef(0),
@@ -184,7 +183,6 @@ export default function Library() {
       await flush();
       const loaded = await api.idea(id);
       assign(loaded);
-      setOriginOpen(!readableText(loaded.body).trim());
       editVersion.current = 0;
       savedVersion.current = 0;
       setStatus('saved');
@@ -465,27 +463,6 @@ export default function Library() {
                       onChanged={() => void refresh()}
                     />
                   </div>
-                  {idea.captureText && (
-                    <details
-                      key={`capture-${idea.id}`}
-                      className="captured-thought"
-                      open={originOpen}
-                      onToggle={(e) => setOriginOpen(e.currentTarget.open)}
-                    >
-                      <summary>
-                        <ChevronRight size={14} />
-                        <span>Capture</span>
-                        <span className="capture-preview">{idea.captureText.split('\n')[0]}</span>
-                      </summary>
-                      <textarea
-                        aria-label="Original captured thought"
-                        value={idea.captureText}
-                        spellCheck
-                        onChange={(e) => edit({ captureText: e.target.value })}
-                        rows={Math.min(7, Math.max(2, idea.captureText.split('\n').length))}
-                      />
-                    </details>
-                  )}
                   <WritingEditor
                     id={idea.id}
                     body={idea.body}
@@ -567,7 +544,7 @@ export default function Library() {
               onClick={() =>
                 void navigator.clipboard
                   .writeText(
-                    `${current.current?.title || ''}\n\n${current.current?.captureText || ''}\n\n${current.current ? readableText(current.current.body) : ''}`,
+                    `${current.current?.title || ''}\n\n${current.current ? readableText(current.current.body) : ''}`,
                   )
                   .then(() => notify('Copied'))
                   .catch((e) => setError(errorText(e)))

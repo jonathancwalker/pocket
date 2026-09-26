@@ -168,6 +168,25 @@ pub fn empty_body() -> Value {
     json!({"type":"doc","content":[{"type":"paragraph"}]})
 }
 
+pub fn body_from_capture(text: &str) -> Value {
+    if text.is_empty() {
+        return empty_body();
+    }
+    json!({
+        "type": "doc",
+        "content": text
+            .split('\n')
+            .map(|line| {
+                if line.is_empty() {
+                    json!({"type":"paragraph"})
+                } else {
+                    json!({"type":"paragraph","content":[{"type":"text","text":line}]})
+                }
+            })
+            .collect::<Vec<_>>()
+    })
+}
+
 pub fn body_text(body: &Value, version: i64) -> Result<String> {
     if version != 1 || body.get("type").and_then(Value::as_str) != Some("doc") {
         return Err(AppError::new(
@@ -259,10 +278,11 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(3))?;
         Self::initialize(conn, Some(path))
     }
-    fn initialize(conn: Connection, path: Option<&Path>) -> Result<Self> {
+    fn initialize(mut conn: Connection, path: Option<&Path>) -> Result<Self> {
         conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;")?;
-        let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 1 {
+        let mut version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        let new_library = version == 0;
+        if version > 2 {
             return Err(AppError::new("newer_database", "This library was created by a newer version. Update Pocket to open it; your data has not been changed."));
         }
         let check: String = conn.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
@@ -270,7 +290,7 @@ impl Store {
             return Err(AppError::new("damaged_database", "The library needs recovery. Your database has been preserved; see the recovery instructions."));
         }
         if version == 0 {
-            if let Some(path) = path {
+            if let Some(path) = path.filter(|_| !new_library) {
                 let has_tables: bool = conn.query_row(
                     "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table')",
                     [],
@@ -285,8 +305,62 @@ impl Store {
                 }
             }
             conn.execute_batch(include_str!("../migrations/001.sql"))?;
+            version = 1;
+        }
+        if version == 1 {
+            if let Some(path) = path.filter(|_| !new_library) {
+                conn.backup(
+                    "main",
+                    path.with_extension(format!("before-v2-{}.sqlite3", now())),
+                    None,
+                )?;
+            }
+            Self::migrate_capture_text_into_body(&mut conn)?;
         }
         Ok(Self { conn })
+    }
+    fn migrate_capture_text_into_body(conn: &mut Connection) -> Result<()> {
+        let ideas = {
+            let mut statement = conn
+                .prepare("SELECT id,title,capture_text,body_json,body_schema_version FROM ideas")?;
+            let rows = statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, i64>(4)?,
+                    ))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            rows
+        };
+        let tx = conn.transaction()?;
+        for (id, title, capture, serialized_body, version) in ideas {
+            let body: Value = serde_json::from_str(&serialized_body)?;
+            if capture.trim().is_empty() || !body_text(&body, version)?.trim().is_empty() {
+                continue;
+            }
+            let body = body_from_capture(&capture);
+            let search = normalized(&format!(
+                "{}\n{}\n{}",
+                title.as_deref().unwrap_or(""),
+                capture,
+                body_text(&body, 1)?
+            ));
+            tx.execute(
+                "UPDATE ideas SET body_json=?1,body_schema_version=1,search_text=?2 WHERE id=?3",
+                params![body.to_string(), search, id],
+            )?;
+        }
+        tx.execute(
+            "INSERT INTO schema_migrations(version,applied_at) VALUES(2,?1)",
+            [now()],
+        )?;
+        tx.execute_batch("PRAGMA user_version=2;")?;
+        tx.commit()?;
+        Ok(())
     }
     #[cfg(test)]
     fn memory() -> Self {
@@ -456,7 +530,8 @@ impl Store {
         self.save_draft(d.clone())?;
         let t = now();
         let tx = self.conn.transaction()?;
-        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6)", params![d.id,d.text,empty_body().to_string(),t,normalized(&format!("{}\n{}",d.text,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
+        let body = body_from_capture(&d.text);
+        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6)", params![d.id,d.text,body.to_string(),t,normalized(&format!("{}\n{}",body_text(&body,1)?,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
         for (position, l) in d.links.iter().enumerate() {
             tx.execute("INSERT INTO idea_links(id,idea_id,url,url_key,hostname,position,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)", params![l.id,d.id,l.url,l.key,l.hostname,position,t])?;
         }
@@ -910,6 +985,7 @@ mod tests {
             .push(reference(&id(), "https://example.com/a?q=1#verse").unwrap());
         let idea = s.commit(d.clone()).unwrap();
         assert_eq!(idea.capture_text, d.text);
+        assert_eq!(idea.body, body_from_capture(&d.text));
         assert_eq!(idea.links.len(), 1);
         assert_eq!(s.commit(d.clone()).unwrap().id, idea.id);
         assert!(s.save_draft(d).is_err());
@@ -966,6 +1042,33 @@ mod tests {
         s.set_state("set_archived", &json!({"id":i.id,"enabled":false}))
             .unwrap();
         assert!(s.idea(&i.id).unwrap().starred_at.is_some());
+    }
+    #[test]
+    fn migration_moves_legacy_capture_text_into_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.sqlite3");
+        let legacy_id = id();
+        let capture = "First thought\n\nA quieter second thought";
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(include_str!("../migrations/001.sql"))
+                .unwrap();
+            conn.execute(
+                "INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,1,1,1,1,?2,'legacy')",
+                params![legacy_id, capture, empty_body().to_string()],
+            )
+            .unwrap();
+        }
+        let s = Store::open(&path).unwrap();
+        let migrated = s.idea(&legacy_id).unwrap();
+        assert_eq!(migrated.capture_text, capture);
+        assert_eq!(migrated.body, body_from_capture(capture));
+        assert_eq!(
+            s.conn
+                .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                .unwrap(),
+            2
+        );
     }
     #[test]
     fn url_validation_dedup_and_meaningful_differences() {

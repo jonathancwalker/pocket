@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { dateBoundary, dateInput, presetBounds, previewOf, timeGroup } from './browsing';
 import { emptyBody, type Idea } from '../types';
-const note = (title: string | null, captureText: string, text = '') =>
+const note = (title: string | null, text = '') =>
   ({
     title,
-    captureText,
+    captureText: '',
     body: text
       ? {
           type: 'doc',
@@ -16,13 +16,13 @@ const note = (title: string | null, captureText: string, text = '') =>
   }) as Idea;
 describe('previews from existing writing', () => {
   it('uses expanded writing, removes a repeated title, and never invents a subtitle', () => {
-    expect(previewOf(note('Sunday', 'old capture', 'Sunday\nA slow morning\n\nwith coffee'))).toBe(
+    expect(previewOf(note('Sunday', 'Sunday\nA slow morning\n\nwith coffee'))).toBe(
       'A slow morning with coffee',
     );
     expect(previewOf(note(null, '  a fragment\n   without a title'))).toBe(
       'a fragment without a title',
     );
-    expect(previewOf(note('Just a title', ''))).toBe('');
+    expect(previewOf(note('Just a title'))).toBe('');
     expect(previewOf(note('Sunday', 'Sunday'))).toBe('');
   });
   it('retains ordinary text that happens to begin with the title', () => {
