@@ -1014,18 +1014,18 @@
 .library-shell .setting-field small {
   color: var(--muted);
 }
-.library-shell .api-key-status {
-  color: var(--muted);
+.library-shell .kept-api-key {
+  background: var(--linen);
+  border-color: var(--line);
 }
-.library-shell .api-key-status > span {
-  background: var(--line);
+.library-shell .kept-api-key strong {
+  color: var(--ink);
 }
-.library-shell .api-key-status.is-saved {
+.library-shell .kept-api-key small {
   color: #a9c18c;
 }
-.library-shell .api-key-status.is-saved > span {
-  background: #a9c18c;
-  box-shadow: 0 0 0 3px #a9c18c22;
+.library-shell .kept-api-key .text-button {
+  color: #d8b49f;
 }
 .library-shell .shortcut-keys kbd {
   background: var(--paper);

@@ -34,14 +34,38 @@ export default function Settings({
     setBusy(true);
     setError('');
     try {
-      if (titleKey.trim()) {
-        await api.saveTitleKey(titleKey);
-        setTitleKey('');
-        setHasTitleKey(true);
-      }
       const saved = await api.saveSettings(settings);
       setSettings(saved);
       setNotice('Saved');
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveTitleKey() {
+    if (!titleKey.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.saveTitleKey(titleKey);
+      setTitleKey('');
+      setHasTitleKey(true);
+      setNotice('API key saved');
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function clearTitleKey() {
+    setBusy(true);
+    setError('');
+    try {
+      await api.clearTitleKey();
+      setHasTitleKey(false);
+      setTitleKey('');
+      setNotice('API key removed');
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -106,48 +130,47 @@ export default function Settings({
             </div>
             <div className="settings-section">
               <div className="setting-label">Automatic titles</div>
-              <div
-                className={`api-key-status ${hasTitleKey ? 'is-saved' : ''}`}
-                role="status"
-              >
-                <span aria-hidden="true" />
-                {hasTitleKey ? 'API key saved in Keychain' : 'No API key saved'}
-              </div>
-              <label className="setting-field">
-                <span>OpenAI API key</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={titleKey}
-                  placeholder={hasTitleKey ? 'Paste a replacement key' : 'Paste your API key'}
-                  onChange={(e) => {
-                    setTitleKey(e.target.value);
-                    setNotice('');
-                  }}
-                />
-                <small>Used only to title new captures. Stored in your Mac keychain.</small>
-              </label>
-              {hasTitleKey && (
-                <button
-                  className="secondary-button"
-                  disabled={busy}
-                  onClick={() => {
-                    setBusy(true);
-                    setError('');
-                    void api
-                      .clearTitleKey()
-                      .then(() => {
-                        setHasTitleKey(false);
-                        setTitleKey('');
-                        setNotice('API key removed');
-                      })
-                      .catch((e) => setError(errorText(e)))
-                      .finally(() => setBusy(false));
-                  }}
-                >
-                  Remove API key
-                </button>
+              {hasTitleKey ? (
+                <div className="kept-api-key" role="status">
+                  <div>
+                    <strong>OpenAI API key</strong>
+                    <small>Tucked in your Keychain</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={busy}
+                    onClick={() => void clearTitleKey()}
+                  >
+                    Remove key
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <label className="setting-field">
+                    <span>OpenAI API key</span>
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={titleKey}
+                      placeholder="Paste your API key"
+                      onChange={(e) => {
+                        setTitleKey(e.target.value);
+                        setNotice('');
+                      }}
+                    />
+                    <small>Used only to title new captures. Stored in your Mac keychain.</small>
+                  </label>
+                  <button
+                    type="button"
+                    className="primary-button save-api-key"
+                    disabled={busy || !titleKey.trim()}
+                    onClick={() => void saveTitleKey()}
+                  >
+                    Save API key
+                  </button>
+                </>
               )}
             </div>
             <div className="settings-section">

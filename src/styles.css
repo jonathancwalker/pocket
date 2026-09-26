@@ -1141,26 +1141,34 @@ a {
   font-weight: 500;
   margin-bottom: 9px;
 }
-.api-key-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: -1px 0 12px;
-  color: #a39487;
+.save-api-key {
+  margin-top: 12px;
+}
+.kept-api-key {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 82px;
+  padding: 14px 15px;
+  border: 1px dashed #8b8068;
+  border-radius: 6px 9px 5px 8px;
+  background: #edf0e6;
+}
+.kept-api-key strong {
+  display: block;
+  font: 400 16px/1.3 Georgia, serif;
+  color: #4e493c;
+}
+.kept-api-key small {
+  display: block;
+  margin-top: 4px;
+  color: #657553;
   font-size: 11px;
 }
-.api-key-status > span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #c9beb4;
-}
-.api-key-status.is-saved {
-  color: #557054;
-}
-.api-key-status.is-saved > span {
-  background: #6c9c68;
-  box-shadow: 0 0 0 3px #6c9c681c;
+.kept-api-key .text-button {
+  color: #8a5e4b;
+  white-space: nowrap;
 }
 .settings-section > input {
   width: 100%;
@@ -1187,9 +1195,6 @@ a {
   color: #a39487;
   font-size: 11px;
   line-height: 1.5;
-}
-.setting-field + .secondary-button {
-  margin-top: 12px;
 }
 .settings-help {
   color: #a49689;
