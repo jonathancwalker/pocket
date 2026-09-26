@@ -464,6 +464,28 @@
   font-style: italic;
   color: var(--muted);
 }
+.library-shell .idea-row-title.naming {
+  color: var(--muted);
+  font-style: italic;
+}
+.library-shell .idea-row-title.title-arrived {
+  animation: title-arrive 420ms ease-out;
+}
+@keyframes title-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-shell .idea-row-title.title-arrived {
+    animation: none;
+  }
+}
 .idea-excerpt {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -988,7 +1010,6 @@
   margin-bottom: 22px;
 }
 .library-shell .toggle-row small,
-.library-shell .storage-location,
 .library-shell .success-notice {
   color: var(--muted);
 }

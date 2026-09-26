@@ -436,12 +436,14 @@ export default function Browse({
                   group !== previousGroup;
               previousGroup = group;
               const preview = previewOf(item);
+              const naming = item.titleStatus === 'pending';
+              const displayTitle = naming ? 'Naming…' : titleOf(item);
               return (
                 <Fragment key={item.id}>
                   {showGroup && <h2 className="time-group">{group}</h2>}
                   <article className={layout === 'list' ? 'browse-row' : 'idea-card'}>
                     <IconButton
-                      label={`${item.starredAt ? 'Unstar' : 'Star'} ${titleOf(item)}`}
+                      label={`${item.starredAt ? 'Unstar' : 'Star'} ${displayTitle}`}
                       aria-pressed={!!item.starredAt}
                       className={`browse-star ${item.starredAt ? 'is-starred' : ''}`}
                       onClick={() => onStar(item)}
@@ -457,14 +459,16 @@ export default function Browse({
                         setOpen(false);
                         onSelect(item.id);
                       }}
-                      aria-label={`Open ${titleOf(item)}`}
+                      aria-label={`Open ${displayTitle}`}
                     >
                       {layout === 'grid' && <TypeLabels tags={item.tags} />}
                       <span className="idea-primary">
-                        <span className={`idea-row-title ${item.title?.trim() ? '' : 'untitled'}`}>
-                          {titleOf(item)}
+                        <span
+                          className={`idea-row-title ${naming ? 'naming' : item.title?.trim() ? '' : 'untitled'} ${item.titleStatus === 'generated' ? 'title-arrived' : ''}`}
+                        >
+                          {displayTitle}
                         </span>
-                        {preview && (layout === 'grid' || !item.title?.trim()) && (
+                        {preview && (layout === 'grid' || naming || !item.title?.trim()) && (
                           <span className="idea-excerpt">{preview}</span>
                         )}
                       </span>

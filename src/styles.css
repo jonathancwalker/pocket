@@ -1256,25 +1256,6 @@ a {
 .toggle-row input:checked:before {
   transform: translateX(13px);
 }
-.storage-location {
-  font-size: 11px;
-  color: #a59688;
-  margin-top: 15px;
-  overflow-wrap: anywhere;
-}
-.storage-location summary {
-  cursor: pointer;
-}
-.storage-location code {
-  display: block;
-  font-size: 10px;
-  line-height: 1.6;
-  margin-top: 9px;
-  padding: 10px;
-  border-radius: 6px;
-  background: #947c670a;
-  white-space: normal;
-}
 .settings-modal > footer {
   display: flex;
   justify-content: flex-end;

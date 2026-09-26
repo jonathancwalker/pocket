@@ -134,7 +134,7 @@ export default function Settings({
                 <div className="kept-api-key" role="status">
                   <div>
                     <strong>OpenAI API key</strong>
-                    <small>Tucked in your Keychain</small>
+                    <small>Saved locally on this Mac</small>
                   </div>
                   <button
                     type="button"
@@ -160,7 +160,7 @@ export default function Settings({
                         setNotice('');
                       }}
                     />
-                    <small>Used only to title new captures. Stored in your Mac keychain.</small>
+                    <small>Used only to title new captures. Saved locally on this Mac.</small>
                   </label>
                   <button
                     type="button"
@@ -207,12 +207,6 @@ export default function Settings({
                 <Download size={16} />
                 Export library
               </button>
-              <details className="storage-location">
-                <summary>
-                  Storage location{info?.development ? ' · development library' : ''}
-                </summary>
-                <code>{info?.dataPath}</code>
-              </details>
             </div>
             {info?.shortcutError && <p className="field-error">{info.shortcutError}</p>}
             <footer>
