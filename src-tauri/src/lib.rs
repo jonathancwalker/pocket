@@ -226,6 +226,7 @@ async fn storage(
             | "set_archived"
             | "create_tag"
             | "rename_tag"
+            | "delete_tag"
             | "set_tag"
             | "add_link"
             | "remove_link"
