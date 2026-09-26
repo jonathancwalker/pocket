@@ -1015,7 +1015,6 @@
   color: var(--muted);
 }
 .library-shell .kept-api-key {
-  background: var(--linen);
   border-color: var(--line);
 }
 .library-shell .kept-api-key strong {

@@ -1146,25 +1146,26 @@ a {
 }
 .kept-api-key {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 82px;
-  padding: 14px 15px;
-  border: 1px dashed #8b8068;
-  border-radius: 6px 9px 5px 8px;
-  background: #edf0e6;
+  padding: 10px 0;
+  border-top: 1px dashed #8b8068;
+  border-bottom: 1px dashed #8b8068;
+}
+.kept-api-key > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 .kept-api-key strong {
-  display: block;
-  font: 400 16px/1.3 Georgia, serif;
+  font: 500 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #4e493c;
 }
 .kept-api-key small {
-  display: block;
-  margin-top: 4px;
+  margin: 0;
   color: #657553;
-  font-size: 11px;
+  font-size: 12px;
 }
 .kept-api-key .text-button {
   color: #8a5e4b;
