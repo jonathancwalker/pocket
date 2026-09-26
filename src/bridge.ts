@@ -44,6 +44,7 @@ export const api = {
   clearTitleKey: () => invoke<void>('clear_title_key'),
   generateCaptureTitle: (id: string) => invoke<Idea>('generate_capture_title', { id }),
   generateUntitledTitles: () => invoke<{ titled: number; failed: number }>('generate_untitled_titles'),
+  shortenGeneratedTitles: () => invoke<{ titled: number; failed: number }>('shorten_generated_titles'),
 };
 export function onNative<T>(name: string, callback: (payload: T) => void): () => void {
   let cleanup: UnlistenFn | undefined,

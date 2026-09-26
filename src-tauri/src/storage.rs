@@ -416,6 +416,7 @@ impl Store {
             "get_idea" => Ok(serde_json::to_value(self.idea(string(&input, "id")?)?)?),
             "update_content" => self.update(&input),
             "untitled_title_candidates" => self.untitled_title_candidates(),
+            "generated_title_candidates" => self.generated_title_candidates(),
             "set_generated_title" => self.set_generated_title(&input),
             "set_title_status" => self.set_title_status(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
@@ -1005,10 +1006,15 @@ impl Store {
         Ok(serde_json::to_value(self.idea(idea_id)?)?)
     }
     fn untitled_title_candidates(&self) -> Result<Value> {
+        self.title_candidates("title IS NULL OR title='Untitled'")
+    }
+    fn generated_title_candidates(&self) -> Result<Value> {
+        self.title_candidates("title_status='generated'")
+    }
+    fn title_candidates(&self, predicate: &str) -> Result<Value> {
         let ids = {
-            let mut statement = self
-                .conn
-                .prepare("SELECT id FROM ideas WHERE title IS NULL OR title='Untitled' ORDER BY created_at DESC")?;
+            let query = format!("SELECT id FROM ideas WHERE {predicate} ORDER BY created_at DESC");
+            let mut statement = self.conn.prepare(&query)?;
             let ids = statement
                 .query_map([], |row| row.get::<_, String>(0))?
                 .collect::<std::result::Result<Vec<_>, _>>()?;

@@ -90,6 +90,24 @@ export default function Settings({
       setBusy(false);
     }
   }
+  async function shortenGeneratedTitles() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.shortenGeneratedTitles();
+      if (result.titled === 0) {
+        setNotice(result.failed ? 'Automatic titles could not be shortened' : 'No automatic titles');
+      } else if (result.failed) {
+        setNotice(`Shortened ${result.titled} titles; ${result.failed} kept their title`);
+      } else {
+        setNotice(`Shortened ${result.titled} ${result.titled === 1 ? 'title' : 'titles'}`);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div
       className="modal-backdrop"
@@ -172,6 +190,15 @@ export default function Settings({
                   >
                     {busy ? <LoaderCircle size={14} className="spin" /> : null}
                     Name untitled ideas
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button title-untitled-button"
+                    disabled={busy}
+                    onClick={() => void shortenGeneratedTitles()}
+                  >
+                    {busy ? <LoaderCircle size={14} className="spin" /> : null}
+                    Shorten auto titles
                   </button>
                 </>
               ) : (

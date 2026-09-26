@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 
 pub const TITLE_MODEL: &str = "gpt-6-luna";
-pub const TITLE_PROMPT: &str = "Write one specific, concise title for this captured idea. Return only the title, with no quotation marks, markdown, or ending punctuation. Use at most 60 characters.";
+pub const TITLE_PROMPT: &str = "Write a specific title in two to four words. Return only the title, with no quotation marks, markdown, or ending punctuation.";
 pub const TITLE_INPUT_LIMIT: usize = 6_000;
 
 #[derive(Deserialize, Serialize)]
@@ -105,7 +105,7 @@ pub async fn generate(path: &Path, capture: &str) -> Result<String> {
         .json(&json!({
             "model": TITLE_MODEL,
             "reasoning": {"effort": "none"},
-            "max_output_tokens": 40,
+            "max_output_tokens": 16,
             "store": false,
             "instructions": TITLE_PROMPT,
             "input": context,
@@ -140,8 +140,11 @@ fn clean(title: &str) -> Option<String> {
         .trim()
         .trim_matches(['\'', '"', '“', '”'])
         .split_whitespace()
+        .take(4)
         .collect::<Vec<_>>()
-        .join(" ");
+        .join(" ")
+        .trim_end_matches(['.', ',', ':', ';', '!', '?'])
+        .to_string();
     if title.is_empty() {
         return None;
     }
@@ -155,9 +158,10 @@ mod tests {
     #[test]
     fn title_cleaning_keeps_one_short_line() {
         assert_eq!(
-            clean("  “A small, bright plan”  "),
-            Some("A small, bright plan".into())
+            clean("  “A small bright plan”  "),
+            Some("A small bright plan".into())
         );
+        assert_eq!(clean("A much longer title than this"), Some("A much longer title".into()));
         assert_eq!(clean("\n\t"), None);
         assert_eq!(clean(&"a".repeat(90)).unwrap().chars().count(), 60);
     }
