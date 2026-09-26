@@ -35,12 +35,7 @@ export const api = {
   systemInfo: () =>
     invoke<{
       settings: Settings;
-      dataPath: string;
       shortcutError: string | null;
-      development: boolean;
-      titlePrompt: string;
-      titleModel: string;
-      titleInputLimit: number;
     }>('system_info'),
   saveSettings: (settings: Settings) => invoke<Settings>('update_settings', { settings }),
   export: () => invoke<string | null>('export_library'),

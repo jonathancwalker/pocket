@@ -35,7 +35,6 @@ struct Lifecycle {
 struct Runtime {
     lifecycle: Mutex<Lifecycle>,
     exiting: AtomicBool,
-    data_path: std::path::PathBuf,
     title_settings_path: std::path::PathBuf,
 }
 fn native_error(error: impl std::fmt::Display) -> AppError {
@@ -455,7 +454,7 @@ async fn system_info(
     authorize(&window, true)?;
     let settings = db.call("get_settings", Value::Null).await?;
     Ok(
-        json!({"settings":settings,"dataPath":app.state::<Runtime>().data_path.to_string_lossy(),"shortcutError":app.state::<Runtime>().lifecycle.lock().map_err(native_error)?.shortcut_error,"development":cfg!(debug_assertions),"titlePrompt":titles::TITLE_PROMPT,"titleModel":titles::TITLE_MODEL,"titleInputLimit":titles::TITLE_INPUT_LIMIT}),
+        json!({"settings":settings,"shortcutError":app.state::<Runtime>().lifecycle.lock().map_err(native_error)?.shortcut_error}),
     )
 }
 #[tauri::command]
@@ -674,7 +673,7 @@ pub fn run() {
             let database=match Database::start(&path) {Ok(db)=>db,Err(error)=>{app.dialog().message(format!("{}\n\nLibrary: {}",error.message,path.display())).title("Could not open Pocket").blocking_show();return Err(error.into());}};
             let settings=tauri::async_runtime::block_on(database.call("get_settings",Value::Null))?;
             app.manage(database);
-            app.manage(Runtime{lifecycle:Mutex::new(Lifecycle::default()),exiting:AtomicBool::new(false),data_path:path,title_settings_path});
+            app.manage(Runtime{lifecycle:Mutex::new(Lifecycle::default()),exiting:AtomicBool::new(false),title_settings_path});
             platform::initialize(app.handle().clone());
             if let Some(capture)=app.get_webview_window("capture") {platform::configure(&capture);}
             let shortcut=settings["shortcut"].as_str().unwrap_or("CommandOrControl+Shift+Space");

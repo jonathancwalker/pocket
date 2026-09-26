@@ -172,14 +172,6 @@ export default function Settings({
                   </button>
                 </>
               )}
-              <details className="title-prompt">
-                <summary>Title prompt</summary>
-                <p>
-                  {info?.titleModel} · first {info?.titleInputLimit.toLocaleString()} characters of each
-                  capture
-                </p>
-                <pre>{info?.titlePrompt}</pre>
-              </details>
             </div>
             <div className="settings-section">
               <label className="toggle-row">
@@ -215,12 +207,6 @@ export default function Settings({
                 <Download size={16} />
                 Export library
               </button>
-              <details className="storage-location">
-                <summary>
-                  Storage location{info?.development ? ' · development library' : ''}
-                </summary>
-                <code>{info?.dataPath}</code>
-              </details>
             </div>
             {info?.shortcutError && <p className="field-error">{info.shortcutError}</p>}
             <footer>

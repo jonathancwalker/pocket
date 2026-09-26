@@ -1010,7 +1010,6 @@
   margin-bottom: 22px;
 }
 .library-shell .toggle-row small,
-.library-shell .storage-location,
 .library-shell .success-notice {
   color: var(--muted);
 }
@@ -1045,19 +1044,6 @@
 }
 .library-shell .kept-api-key .text-button {
   color: #d8b49f;
-}
-.library-shell .title-prompt {
-  color: var(--muted);
-}
-.library-shell .title-prompt summary {
-  color: var(--muted);
-}
-.library-shell .title-prompt p {
-  color: var(--muted);
-}
-.library-shell .title-prompt pre {
-  background: var(--canvas);
-  color: var(--ink);
 }
 .library-shell .shortcut-keys kbd {
   background: var(--paper);
