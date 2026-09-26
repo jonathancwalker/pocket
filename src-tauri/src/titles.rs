@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 
 pub const TITLE_MODEL: &str = "gpt-6-luna";
-pub const TITLE_PROMPT: &str = "Name this private note as if you are writing a small label on a paper tab. Use two to four ordinary, concrete words from the note. Keep it warm, casual, and understated. Name the subject; do not turn it into a thesis, headline, interpretation, or poetic phrase. Avoid jargon and grand language. Return only the label, in sentence case, with no quotation marks, markdown, or ending punctuation.";
+pub const TITLE_PROMPT: &str = "Name this private note as if you are writing a small label on a folded piece of paper to find later. Use two to four familiar, gentle words. Stay close to the note's plain subject and prefer everyday phrasing over summary language. Examples: a note about AI moving too fast becomes 'taking it slow'; an identity note becomes 'who I’m becoming'; an idea about plants becomes 'plant names'; a weekend project becomes 'weekend plans'. Avoid academic, corporate, abstract, or poetic language. Do not use words such as attention, amid, exploring, reflection, journey, insights, or finding. Return only the label, in sentence case, with no quotation marks, markdown, or ending punctuation.";
 pub const TITLE_INPUT_LIMIT: usize = 6_000;
 
 #[derive(Deserialize, Serialize)]
