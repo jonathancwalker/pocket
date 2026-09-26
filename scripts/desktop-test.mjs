@@ -445,8 +445,9 @@ try {
   );
   const poem =
     'A poem about the things we almost notice\n  sunlight on the kitchen floor 🌱\n\nand the kettle, again';
-  await input('capture', '[aria-label="Your idea"]', poem);
-  await until(async () => (await db('get_draft')).text === poem, 'draft text autosaved');
+  const taggedPoem = `[pOeM] ${poem}`;
+  await input('capture', '[aria-label="Your idea"]', taggedPoem);
+  await until(async () => (await db('get_draft')).text === taggedPoem, 'draft text autosaved');
   await pasteLink('not a link');
   await until(() => text('capture', '.field-error'), 'invalid link feedback');
   assert.ok(
@@ -456,7 +457,7 @@ try {
     }),
   );
   assert.equal(await evaluate('capture', () => document.activeElement?.id), 'paste-link');
-  assert.equal((await db('get_draft')).text, poem);
+  assert.equal((await db('get_draft')).text, taggedPoem);
   await key('capture', 'Escape');
   await pasteLink('https://example.com/poetry?draft=1#verse');
   await until(async () => (await db('get_draft')).links.length === 1, 'reference saved to draft');
@@ -466,7 +467,7 @@ try {
   );
   assert.equal(
     await evaluate('capture', () => document.querySelector('[aria-label="Your idea"]').value),
-    poem,
+    taggedPoem,
   );
   await screenshot('capture', 'capture-expanded.png');
   await click('capture', '[aria-label="Open idea library"]');
@@ -475,7 +476,7 @@ try {
   await click('library', '.new-idea-button');
   assert.equal(
     await evaluate('capture', () => document.querySelector('[aria-label="Your idea"]').value),
-    poem,
+    taggedPoem,
   );
   const captureSaveStarted = Date.now();
   await click('capture', '[aria-label="Save idea · ⌘Enter"]');
@@ -640,19 +641,9 @@ try {
   assert.equal(idea.title, 'The almost-noticed things');
   assert.ok(JSON.stringify(idea.body).includes('"bold"'));
   assert.equal(idea.captureText, poem);
-  await click('library', '[aria-label="Add type"]');
-  await until(
-    () => evaluate('library', () => !!document.querySelector('.tag-option')),
-    'type picker',
-  );
-  await evaluate('library', () =>
-    Array.from(document.querySelectorAll('.tag-option>button:first-child'))
-      .find((e) => e.textContent.includes('Poem'))
-      .click(),
-  );
   await until(
     async () => (await db('get_idea', { id })).tags.some((t) => t.name === 'Poem'),
-    'type assigned',
+    'capture tag assigned',
   );
   await click('library', '[aria-label="Star idea"]');
   await until(async () => !!(await db('get_idea', { id })).starredAt, 'star saved');
