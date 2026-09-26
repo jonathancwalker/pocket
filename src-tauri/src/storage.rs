@@ -74,6 +74,23 @@ fn string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
         .ok_or_else(|| AppError::new("validation", "A required value is missing."))
 }
 
+fn capture_tag_directive(text: &str) -> (Option<String>, String) {
+    let Some(after_open) = text.strip_prefix('[') else {
+        return (None, text.into());
+    };
+    let Some(close) = after_open.find(']') else {
+        return (None, text.into());
+    };
+    let tag = after_open[..close].trim();
+    if tag.is_empty() || tag.contains(['\n', '\r']) || tag.chars().count() > 60 {
+        return (None, text.into());
+    }
+    (
+        Some(tag.into()),
+        after_open[close + 1..].trim_start().into(),
+    )
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Reference {
@@ -505,7 +522,8 @@ impl Store {
     }
     pub fn commit(&mut self, mut d: Draft) -> Result<Idea> {
         self.validate_draft(&mut d)?;
-        if d.text.trim().is_empty() && d.links.is_empty() {
+        let (tag_name, capture_text) = capture_tag_directive(&d.text);
+        if capture_text.trim().is_empty() && d.links.is_empty() {
             return Err(AppError::new(
                 "empty",
                 "A thought or a link is all you need.",
@@ -532,10 +550,13 @@ impl Store {
         self.save_draft(d.clone())?;
         let t = now();
         let tx = self.conn.transaction()?;
-        let body = body_from_capture(&d.text);
-        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6)", params![d.id,d.text,body.to_string(),t,normalized(&format!("{}\n{}",body_text(&body,1)?,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
+        let body = body_from_capture(&capture_text);
+        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6)", params![d.id,capture_text,body.to_string(),t,normalized(&format!("{}\n{}",body_text(&body,1)?,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
         for (position, l) in d.links.iter().enumerate() {
             tx.execute("INSERT INTO idea_links(id,idea_id,url,url_key,hostname,position,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)", params![l.id,d.id,l.url,l.key,l.hostname,position,t])?;
+        }
+        if let Some(tag) = tag_name {
+            Self::attach_capture_tag(&tx, &d.id, &tag)?;
         }
         tx.execute("DELETE FROM capture_draft WHERE capture_id=?1", [&d.id])?;
         tx.execute(
@@ -544,6 +565,41 @@ impl Store {
         )?;
         tx.commit()?;
         self.idea(&d.id)
+    }
+    fn attach_capture_tag(tx: &rusqlite::Transaction<'_>, idea_id: &str, name: &str) -> Result<()> {
+        let normalized_name = normalized(name);
+        let matches = {
+            let mut statement = tx.prepare(
+                "SELECT id FROM tags WHERE normalized_name=?1 ORDER BY CASE axis WHEN 'type' THEN 0 ELSE 1 END,id",
+            )?;
+            let rows = statement
+                .query_map([&normalized_name], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            rows
+        };
+        let tag_ids = if matches.is_empty() {
+            let type_count: i64 =
+                tx.query_row("SELECT count(*) FROM tags WHERE axis='type'", [], |row| {
+                    row.get(0)
+                })?;
+            let tag_id = id();
+            let color =
+                ["sage", "rose", "amber", "sky", "lavender", "clay"][type_count as usize % 6];
+            tx.execute(
+                "INSERT INTO tags(id,axis,name,normalized_name,color,created_at,updated_at) VALUES(?1,'type',?2,?3,?4,?5,?5)",
+                params![tag_id, name, normalized_name, color, now()],
+            )?;
+            vec![tag_id]
+        } else {
+            matches
+        };
+        for tag_id in tag_ids {
+            tx.execute(
+                "INSERT OR IGNORE INTO idea_tags(idea_id,tag_id,created_at) VALUES(?1,?2,?3)",
+                params![idea_id, tag_id, now()],
+            )?;
+        }
+        Ok(())
     }
     pub fn idea(&self, id: &str) -> Result<Idea> {
         let mut idea = self.conn.query_row("SELECT id,capture_text,title,body_json,body_schema_version,created_at,content_updated_at,updated_at,starred_at,archived_at,revision FROM ideas WHERE id=?1", [id], |r| Ok((Idea { id:r.get(0)?,capture_text:r.get(1)?,title:r.get(2)?,body:Value::Null,body_schema_version:r.get(4)?,created_at:r.get(5)?,content_updated_at:r.get(6)?,updated_at:r.get(7)?,starred_at:r.get(8)?,archived_at:r.get(9)?,revision:r.get(10)?,links:vec![],tags:vec![] },r.get::<_,String>(3)?))).optional()?.ok_or_else(|| AppError::new("missing", "This idea could not be found."))?;
@@ -1035,6 +1091,44 @@ mod tests {
         assert!(s.save_draft(d).is_err());
         assert_eq!(s.list(&json!({})).unwrap()["total"], 1);
         assert_ne!(s.draft().unwrap().id, idea.id);
+    }
+    #[test]
+    fn capture_prefix_assigns_existing_tags_and_creates_new_types() {
+        let mut s = Store::memory();
+        let mut d = filled(&mut s, "[pOeM] a small line");
+        let poem = s.commit(d.clone()).unwrap();
+        assert_eq!(poem.capture_text, "a small line");
+        assert_eq!(
+            poem.tags
+                .iter()
+                .map(|tag| (tag.axis.as_str(), tag.name.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("type", "Poem")]
+        );
+        assert_eq!(s.commit(d).unwrap().id, poem.id);
+
+        let topic = s
+            .save_tag("create_tag", &json!({"name":"Memory","axis":"topic"}))
+            .unwrap();
+        d = filled(&mut s, "[MEMORY] an old letter");
+        let memory = s.commit(d).unwrap();
+        assert_eq!(memory.capture_text, "an old letter");
+        assert_eq!(memory.tags[0].id, topic["id"]);
+
+        d = filled(&mut s, "[Sketchbook] draw the doorway");
+        let first_sketch = s.commit(d).unwrap();
+        assert_eq!(first_sketch.capture_text, "draw the doorway");
+        assert_eq!(first_sketch.tags[0].axis, "type");
+        assert_eq!(first_sketch.tags[0].name, "Sketchbook");
+        d = filled(&mut s, "[sKeTcHbOoK] draw the window");
+        let second_sketch = s.commit(d).unwrap();
+        assert_eq!(second_sketch.tags[0].id, first_sketch.tags[0].id);
+
+        assert_eq!(
+            capture_tag_directive("[  ] ordinary thought"),
+            (None, "[  ] ordinary thought".into())
+        );
+        assert_eq!(capture_tag_directive("[Poem"), (None, "[Poem".into()));
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {
