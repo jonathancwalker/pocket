@@ -1014,6 +1014,19 @@
 .library-shell .setting-field small {
   color: var(--muted);
 }
+.library-shell .api-key-status {
+  color: var(--muted);
+}
+.library-shell .api-key-status > span {
+  background: var(--line);
+}
+.library-shell .api-key-status.is-saved {
+  color: #a9c18c;
+}
+.library-shell .api-key-status.is-saved > span {
+  background: #a9c18c;
+  box-shadow: 0 0 0 3px #a9c18c22;
+}
 .library-shell .shortcut-keys kbd {
   background: var(--paper);
   color: var(--ink);

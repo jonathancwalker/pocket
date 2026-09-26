@@ -1141,6 +1141,27 @@ a {
   font-weight: 500;
   margin-bottom: 9px;
 }
+.api-key-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: -1px 0 12px;
+  color: #a39487;
+  font-size: 11px;
+}
+.api-key-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c9beb4;
+}
+.api-key-status.is-saved {
+  color: #557054;
+}
+.api-key-status.is-saved > span {
+  background: #6c9c68;
+  box-shadow: 0 0 0 3px #6c9c681c;
+}
 .settings-section > input {
   width: 100%;
   padding: 10px 12px;

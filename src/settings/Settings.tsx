@@ -106,6 +106,13 @@ export default function Settings({
             </div>
             <div className="settings-section">
               <div className="setting-label">Automatic titles</div>
+              <div
+                className={`api-key-status ${hasTitleKey ? 'is-saved' : ''}`}
+                role="status"
+              >
+                <span aria-hidden="true" />
+                {hasTitleKey ? 'API key saved in Keychain' : 'No API key saved'}
+              </div>
               <label className="setting-field">
                 <span>OpenAI API key</span>
                 <input
@@ -113,7 +120,7 @@ export default function Settings({
                   autoComplete="off"
                   spellCheck={false}
                   value={titleKey}
-                  placeholder={hasTitleKey ? 'Saved in your Mac keychain' : 'Paste your API key'}
+                  placeholder={hasTitleKey ? 'Paste a replacement key' : 'Paste your API key'}
                   onChange={(e) => {
                     setTitleKey(e.target.value);
                     setNotice('');
