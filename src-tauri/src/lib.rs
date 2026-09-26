@@ -36,6 +36,7 @@ struct Runtime {
     lifecycle: Mutex<Lifecycle>,
     exiting: AtomicBool,
     data_path: std::path::PathBuf,
+    title_settings_path: std::path::PathBuf,
 }
 fn native_error(error: impl std::fmt::Display) -> AppError {
     AppError::new(
@@ -542,19 +543,19 @@ async fn update_settings(
     Ok(settings)
 }
 #[tauri::command]
-fn title_key_status(window: WebviewWindow) -> Result<Value> {
+fn title_key_status(window: WebviewWindow, app: AppHandle) -> Result<Value> {
     authorize(&window, true)?;
-    Ok(json!({"hasKey":titles::has_api_key()?}))
+    Ok(json!({"hasKey":titles::has_api_key(&app.state::<Runtime>().title_settings_path)?}))
 }
 #[tauri::command]
-fn save_title_key(window: WebviewWindow, key: String) -> Result<()> {
+fn save_title_key(window: WebviewWindow, app: AppHandle, key: String) -> Result<()> {
     authorize(&window, true)?;
-    titles::save_api_key(&key)
+    titles::save_api_key(&app.state::<Runtime>().title_settings_path, &key)
 }
 #[tauri::command]
-fn clear_title_key(window: WebviewWindow) -> Result<()> {
+fn clear_title_key(window: WebviewWindow, app: AppHandle) -> Result<()> {
     authorize(&window, true)?;
-    titles::clear_api_key()
+    titles::clear_api_key(&app.state::<Runtime>().title_settings_path)
 }
 #[tauri::command]
 async fn generate_capture_title(
@@ -570,7 +571,8 @@ async fn generate_capture_title(
     };
     let revision = idea["revision"].as_i64().unwrap_or_default();
     let capture = idea["captureText"].as_str().unwrap_or_default();
-    let saved = match titles::generate(capture).await {
+    let title_settings_path = app.state::<Runtime>().title_settings_path.clone();
+    let saved = match titles::generate(&title_settings_path, capture).await {
         Ok(title) => db
             .call(
                 "set_generated_title",
@@ -668,10 +670,11 @@ pub fn run() {
                 if cfg!(debug_assertions) {root.join("development")} else {root}
             };
             let path=directory.join("ideas.sqlite3");
+            let title_settings_path=directory.join("title-settings.json");
             let database=match Database::start(&path) {Ok(db)=>db,Err(error)=>{app.dialog().message(format!("{}\n\nLibrary: {}",error.message,path.display())).title("Could not open Pocket").blocking_show();return Err(error.into());}};
             let settings=tauri::async_runtime::block_on(database.call("get_settings",Value::Null))?;
             app.manage(database);
-            app.manage(Runtime{lifecycle:Mutex::new(Lifecycle::default()),exiting:AtomicBool::new(false),data_path:path});
+            app.manage(Runtime{lifecycle:Mutex::new(Lifecycle::default()),exiting:AtomicBool::new(false),data_path:path,title_settings_path});
             platform::initialize(app.handle().clone());
             if let Some(capture)=app.get_webview_window("capture") {platform::configure(&capture);}
             let shortcut=settings["shortcut"].as_str().unwrap_or("CommandOrControl+Shift+Space");
