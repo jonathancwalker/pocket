@@ -1,6 +1,7 @@
 mod platform;
 mod shortcut;
 mod storage;
+mod titles;
 
 use serde_json::{json, Value};
 use std::{
@@ -221,6 +222,7 @@ async fn storage(
     if matches!(
         operation.as_str(),
         "commit_capture"
+            | "set_generated_title"
             | "update_content"
             | "set_starred"
             | "set_archived"
@@ -540,6 +542,52 @@ async fn update_settings(
     Ok(settings)
 }
 #[tauri::command]
+fn title_key_status(window: WebviewWindow) -> Result<Value> {
+    authorize(&window, true)?;
+    Ok(json!({"hasKey":titles::has_api_key()?}))
+}
+#[tauri::command]
+fn save_title_key(window: WebviewWindow, key: String) -> Result<()> {
+    authorize(&window, true)?;
+    titles::save_api_key(&key)
+}
+#[tauri::command]
+fn clear_title_key(window: WebviewWindow) -> Result<()> {
+    authorize(&window, true)?;
+    titles::clear_api_key()
+}
+#[tauri::command]
+async fn generate_capture_title(
+    window: WebviewWindow,
+    app: AppHandle,
+    db: State<'_, Database>,
+    id: String,
+) -> Result<Value> {
+    authorize(&window, false)?;
+    let idea = db.call("get_idea", json!({"id":id})).await?;
+    let Some(fallback_title) = idea["title"].as_str() else {
+        return Ok(idea);
+    };
+    let revision = idea["revision"].as_i64().unwrap_or_default();
+    let capture = idea["captureText"].as_str().unwrap_or_default();
+    let Ok(title) = titles::generate(capture).await else {
+        return Ok(idea);
+    };
+    let saved = db
+        .call(
+            "set_generated_title",
+            json!({"id":id,"expectedTitle":fallback_title,"expectedRevision":revision,"title":title}),
+        )
+        .await?;
+    if saved["revision"].as_i64() != Some(revision) {
+        let _ = app.emit(
+            "library-changed",
+            json!({"operation":"set_generated_title","id":saved.get("id"),"revision":saved.get("revision")}),
+        );
+    }
+    Ok(saved)
+}
+#[tauri::command]
 fn open_reference(window: WebviewWindow, app: AppHandle, url: String) -> Result<()> {
     authorize(&window, false)?;
     let valid = storage::reference(&uuid::Uuid::new_v4().to_string(), &url)?;
@@ -605,7 +653,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--background"])))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app,_,event| {handle_shortcut(app,event.state()==ShortcutState::Pressed);}).build())
-        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
+        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,title_key_status,save_title_key,clear_title_key,generate_capture_title,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
             #[cfg(feature = "webdriver")]
             capture_surface
         ])

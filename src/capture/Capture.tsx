@@ -221,7 +221,8 @@ export default function Capture() {
     const showGeneration = sequenceAtShow.current;
     try {
       await flush();
-      await queue.current.run(() => api.commit(d));
+      const saved = await queue.current.run(() => api.commit(d));
+      void api.generateCaptureTitle(saved.id).catch(() => {});
       draftRef.current = null;
       const paper = panel.current!;
       const height = paper.offsetHeight;

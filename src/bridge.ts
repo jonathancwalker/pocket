@@ -41,6 +41,10 @@ export const api = {
     }>('system_info'),
   saveSettings: (settings: Settings) => invoke<Settings>('update_settings', { settings }),
   export: () => invoke<string | null>('export_library'),
+  titleKeyStatus: () => invoke<{ hasKey: boolean }>('title_key_status'),
+  saveTitleKey: (key: string) => invoke<void>('save_title_key', { key }),
+  clearTitleKey: () => invoke<void>('clear_title_key'),
+  generateCaptureTitle: (id: string) => invoke<Idea>('generate_capture_title', { id }),
 };
 export function onNative<T>(name: string, callback: (payload: T) => void): () => void {
   let cleanup: UnlistenFn | undefined,
