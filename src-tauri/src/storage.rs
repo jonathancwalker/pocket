@@ -315,6 +315,8 @@ impl Store {
             "set_starred" | "set_archived" => self.set_state(operation, &input),
             "list_tags" => Ok(serde_json::to_value(self.tags()?)?),
             "create_tag" | "rename_tag" => self.save_tag(operation, &input),
+            "tag_usage" => self.tag_usage(&input),
+            "delete_tag" => self.delete_tag(&input),
             "set_tag" => self.set_tag(&input),
             "add_link" | "remove_link" => self.edit_link(operation, &input),
             "get_settings" => self.settings(),
@@ -718,6 +720,48 @@ impl Store {
         self.conn.execute("INSERT INTO tags(id,axis,name,normalized_name,color,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(id) DO UPDATE SET name=excluded.name,normalized_name=excluded.normalized_name,updated_at=excluded.updated_at",params![existing.id,existing.axis,name,normalized(name),existing.color,now()])?;
         Ok(json!({"id":existing.id,"axis":existing.axis,"name":name,"color":existing.color}))
     }
+    fn tag_usage(&self, input: &Value) -> Result<Value> {
+        let tag_id = string(input, "id")?;
+        let tag = self
+            .tags()?
+            .into_iter()
+            .find(|tag| tag.id == tag_id)
+            .ok_or_else(|| AppError::new("missing", "This tag could not be found."))?;
+        let ideas: i64 = self.conn.query_row(
+            "SELECT count(*) FROM idea_tags WHERE tag_id=?1",
+            [tag_id],
+            |row| row.get(0),
+        )?;
+        Ok(json!({"id":tag.id,"axis":tag.axis,"name":tag.name,"ideas":ideas}))
+    }
+    fn delete_tag(&mut self, input: &Value) -> Result<Value> {
+        let tag_id = string(input, "id")?;
+        let tag = self
+            .tags()?
+            .into_iter()
+            .find(|tag| tag.id == tag_id)
+            .ok_or_else(|| AppError::new("missing", "This tag could not be found."))?;
+        if tag.axis != "type" {
+            return Err(AppError::new(
+                "validation",
+                "Only Type tags can be deleted.",
+            ));
+        }
+        let tx = self.conn.transaction()?;
+        let ideas: i64 = tx.query_row(
+            "SELECT count(*) FROM idea_tags WHERE tag_id=?1",
+            [tag_id],
+            |row| row.get(0),
+        )?;
+        tx.execute(
+            "UPDATE ideas SET updated_at=?1,revision=revision+1 WHERE id IN (SELECT idea_id FROM idea_tags WHERE tag_id=?2)",
+            params![now(), tag_id],
+        )?;
+        tx.execute("DELETE FROM idea_tags WHERE tag_id=?1", [tag_id])?;
+        tx.execute("DELETE FROM tags WHERE id=?1", [tag_id])?;
+        tx.commit()?;
+        Ok(json!({"id":tag.id,"name":tag.name,"ideas":ideas}))
+    }
     fn set_tag(&mut self, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
         self.idea(idea_id)?;
@@ -998,6 +1042,33 @@ mod tests {
         let export = s.export().unwrap();
         assert_eq!(export["ideas"][0]["tags"][0]["name"], "Memory");
         assert_eq!(export["ideas"][0]["captureText"], "Café? a quiet poem");
+    }
+    #[test]
+    fn deleting_a_type_removes_its_assignments_but_keeps_ideas() {
+        let mut s = Store::memory();
+        let draft = filled(&mut s, "a tiny film");
+        let idea = s.commit(draft).unwrap();
+        let tag = s
+            .save_tag("create_tag", &json!({"name":"Film","axis":"type"}))
+            .unwrap();
+        s.set_tag(&json!({"id":idea.id,"tagId":tag["id"],"enabled":true}))
+            .unwrap();
+        assert_eq!(s.tag_usage(&json!({"id":tag["id"]})).unwrap()["ideas"], 1);
+        let deleted = s.delete_tag(&json!({"id":tag["id"]})).unwrap();
+        assert_eq!(deleted["ideas"], 1);
+        let saved = s.idea(&idea.id).unwrap();
+        assert_eq!(saved.capture_text, "a tiny film");
+        assert!(saved.tags.is_empty());
+        assert!(!s
+            .tags()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate.id == tag["id"]));
+
+        let topic = s
+            .save_tag("create_tag", &json!({"name":"Cinema","axis":"topic"}))
+            .unwrap();
+        assert!(s.delete_tag(&json!({"id":topic["id"]})).is_err());
     }
     #[test]
     fn restart_and_newer_database_safety() {

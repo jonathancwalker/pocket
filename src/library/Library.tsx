@@ -231,6 +231,29 @@ export default function Library() {
       });
     await refresh();
   }
+  async function deleteTypeTag(tag: Tag) {
+    try {
+      await flush();
+      const usage = await call<{ name: string; ideas: number }>('tag_usage', { id: tag.id });
+      const affected = usage.ideas === 1 ? '1 idea' : `${usage.ideas} ideas`;
+      if (
+        !window.confirm(
+          `Delete the Type “${usage.name}”? It will be removed from ${affected}; your ideas and writing will stay.`,
+        )
+      )
+        return;
+      const currentId = current.current?.id;
+      await queue.current.run(() => call('delete_tag', { id: tag.id }));
+      if (currentId) {
+        const fresh = await api.idea(currentId);
+        assign(fresh);
+        revisions.current.set(fresh.id, fresh.revision);
+      }
+      await refresh();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
   async function capture() {
     try {
       await flush();
@@ -456,6 +479,7 @@ export default function Library() {
                       selected={selectedTags}
                       onToggle={(tag, enabled) => mutate('set_tag', { tagId: tag.id, enabled })}
                       onChanged={() => void refresh()}
+                      onDelete={(tag) => void deleteTypeTag(tag)}
                     />
                     <Tags
                       axis="topic"

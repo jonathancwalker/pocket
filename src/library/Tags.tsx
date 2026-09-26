@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Plus, Pencil, X } from 'lucide-react';
+import { Check, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { call } from '../bridge';
 import type { Tag } from '../types';
 import { errorText } from '../domain';
@@ -26,12 +26,14 @@ export default function Tags({
   selected,
   onToggle,
   onChanged,
+  onDelete,
 }: {
   axis: 'type' | 'topic';
   tags: Tag[];
   selected: Tag[];
   onToggle: (tag: Tag, enabled: boolean) => Promise<void>;
   onChanged: () => void;
+  onDelete?: (tag: Tag) => void;
 }) {
   const [open, setOpen] = useState(false),
     [query, setQuery] = useState(''),
@@ -170,6 +172,11 @@ export default function Tags({
                       >
                         <Pencil size={13} />
                       </IconButton>
+                      {axis === 'type' && onDelete && (
+                        <IconButton label={`Delete ${tag.name}`} onClick={() => onDelete(tag)}>
+                          <Trash2 size={13} />
+                        </IconButton>
+                      )}
                     </div>
                   ))}
                 </div>
