@@ -17,13 +17,15 @@ export default function Settings({
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false);
-  const [recording, setRecording] = useState(false);
+  const [recording, setRecording] = useState(false),
+    [titleKey, setTitleKey] = useState(''),
+    [hasTitleKey, setHasTitleKey] = useState(false);
   useEffect(() => {
-    void api
-      .systemInfo()
-      .then((i) => {
+    void Promise.all([api.systemInfo(), api.titleKeyStatus()])
+      .then(([i, key]) => {
         setInfo(i);
         setSettings(i.settings);
+        setHasTitleKey(key.hasKey);
       })
       .catch((e) => setError(errorText(e)));
   }, []);
@@ -32,6 +34,11 @@ export default function Settings({
     setBusy(true);
     setError('');
     try {
+      if (titleKey.trim()) {
+        await api.saveTitleKey(titleKey);
+        setTitleKey('');
+        setHasTitleKey(true);
+      }
       const saved = await api.saveSettings(settings);
       setSettings(saved);
       setNotice('Saved');
@@ -96,6 +103,45 @@ export default function Settings({
                   onChange={(e) => setSettings({ ...settings, launchAtLogin: e.target.checked })}
                 />
               </label>
+            </div>
+            <div className="settings-section">
+              <div className="setting-label">Automatic titles</div>
+              <label className="setting-field">
+                <span>OpenAI API key</span>
+                <input
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={titleKey}
+                  placeholder={hasTitleKey ? 'Saved in your Mac keychain' : 'Paste your API key'}
+                  onChange={(e) => {
+                    setTitleKey(e.target.value);
+                    setNotice('');
+                  }}
+                />
+                <small>Used only to title new captures. Stored in your Mac keychain.</small>
+              </label>
+              {hasTitleKey && (
+                <button
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    setError('');
+                    void api
+                      .clearTitleKey()
+                      .then(() => {
+                        setHasTitleKey(false);
+                        setTitleKey('');
+                        setNotice('API key removed');
+                      })
+                      .catch((e) => setError(errorText(e)))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  Remove API key
+                </button>
+              )}
             </div>
             <div className="settings-section">
               <label className="toggle-row">

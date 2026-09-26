@@ -403,6 +403,7 @@ impl Store {
             "random_idea" => self.random_idea(&input),
             "get_idea" => Ok(serde_json::to_value(self.idea(string(&input, "id")?)?)?),
             "update_content" => self.update(&input),
+            "set_generated_title" => self.set_generated_title(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
             "list_tags" => Ok(serde_json::to_value(self.tags()?)?),
             "create_tag" | "rename_tag" => self.save_tag(operation, &input),
@@ -558,6 +559,24 @@ impl Store {
         if let Some(tag) = tag_name {
             Self::attach_capture_tag(&tx, &d.id, &tag)?;
         }
+        let title = Self::fallback_title(&tx, &d.id)?;
+        tx.execute(
+            "UPDATE ideas SET title=?1,search_text=?2 WHERE id=?3",
+            params![
+                title,
+                normalized(&format!(
+                    "{}\n{}\n{}",
+                    title,
+                    capture_text,
+                    d.links
+                        .iter()
+                        .map(|link| link.url.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )),
+                d.id
+            ],
+        )?;
         tx.execute("DELETE FROM capture_draft WHERE capture_id=?1", [&d.id])?;
         tx.execute(
             "UPDATE capture_sessions SET state='committed' WHERE id=?1",
@@ -565,6 +584,25 @@ impl Store {
         )?;
         tx.commit()?;
         self.idea(&d.id)
+    }
+    fn fallback_title(tx: &rusqlite::Transaction<'_>, idea_id: &str) -> Result<String> {
+        let tag: Option<(String, String)> = tx
+            .query_row(
+                "SELECT tags.id,tags.name FROM tags JOIN idea_tags ON idea_tags.tag_id=tags.id WHERE idea_tags.idea_id=?1 ORDER BY CASE tags.axis WHEN 'type' THEN 0 ELSE 1 END,tags.normalized_name LIMIT 1",
+                [idea_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        if let Some((tag_id, tag_name)) = tag {
+            let count: i64 = tx.query_row(
+                "SELECT count(*) FROM idea_tags WHERE tag_id=?1",
+                [tag_id],
+                |row| row.get(0),
+            )?;
+            return Ok(format!("[{tag_name}] Idea {count}"));
+        }
+        let count: i64 = tx.query_row("SELECT count(*) FROM ideas", [], |row| row.get(0))?;
+        Ok(format!("New idea {count}"))
     }
     fn attach_capture_tag(tx: &rusqlite::Transaction<'_>, idea_id: &str, name: &str) -> Result<()> {
         let normalized_name = normalized(name);
@@ -918,6 +956,40 @@ impl Store {
         tx.commit()?;
         Ok(serde_json::to_value(self.idea(idea_id)?)?)
     }
+    fn set_generated_title(&mut self, input: &Value) -> Result<Value> {
+        let idea_id = string(input, "id")?;
+        let expected = string(input, "expectedTitle")?;
+        let expected_revision = input["expectedRevision"]
+            .as_i64()
+            .ok_or_else(|| AppError::new("validation", "The generated title is not valid."))?;
+        let title = string(input, "title")?.trim();
+        if title.is_empty() || title.chars().count() > 60 {
+            return Err(AppError::new(
+                "validation",
+                "The generated title is not valid.",
+            ));
+        }
+        let idea = self.idea(idea_id)?;
+        if idea.title.as_deref() != Some(expected) || idea.revision != expected_revision {
+            return Ok(serde_json::to_value(idea)?);
+        }
+        let search = normalized(&format!(
+            "{}\n{}\n{}\n{}",
+            title,
+            idea.capture_text,
+            body_text(&idea.body, idea.body_schema_version)?,
+            idea.links
+                .iter()
+                .map(|link| link.url.as_str())
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+        self.conn.execute(
+            "UPDATE ideas SET title=?1,search_text=?2,updated_at=?3,content_updated_at=?3,revision=revision+1 WHERE id=?4 AND revision=?5",
+            params![title, search, now(), idea_id, expected_revision],
+        )?;
+        Ok(serde_json::to_value(self.idea(idea_id)?)?)
+    }
     fn edit_link(&mut self, operation: &str, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
         let mut idea = self.idea(idea_id)?;
@@ -1098,6 +1170,7 @@ mod tests {
         let mut d = filled(&mut s, "[pOeM] a small line");
         let poem = s.commit(d.clone()).unwrap();
         assert_eq!(poem.capture_text, "a small line");
+        assert_eq!(poem.title.as_deref(), Some("[Poem] Idea 1"));
         assert_eq!(
             poem.tags
                 .iter()
@@ -1129,6 +1202,35 @@ mod tests {
             (None, "[  ] ordinary thought".into())
         );
         assert_eq!(capture_tag_directive("[Poem"), (None, "[Poem".into()));
+    }
+    #[test]
+    fn generated_titles_replace_only_the_capture_fallback() {
+        let mut s = Store::memory();
+        let first_draft = filled(&mut s, "find a quieter way home");
+        let first = s.commit(first_draft).unwrap();
+        assert_eq!(first.title.as_deref(), Some("New idea 1"));
+        let titled = s
+            .set_generated_title(&json!({
+                "id":first.id,
+                "expectedTitle":"New idea 1",
+                "expectedRevision":first.revision,
+                "title":"A Quieter Way Home"
+            }))
+            .unwrap();
+        assert_eq!(titled["title"], "A Quieter Way Home");
+        let unchanged = s
+            .set_generated_title(&json!({
+                "id":first.id,
+                "expectedTitle":"A Quieter Way Home",
+                "expectedRevision":first.revision,
+                "title":"A Later Guess"
+            }))
+            .unwrap();
+        assert_eq!(unchanged["title"], "A Quieter Way Home");
+
+        let second_draft = filled(&mut s, "a second thought");
+        let second = s.commit(second_draft).unwrap();
+        assert_eq!(second.title.as_deref(), Some("New idea 2"));
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {

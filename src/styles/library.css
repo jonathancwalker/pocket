@@ -1006,6 +1006,14 @@
   border-color: var(--line);
   color: var(--ink);
 }
+.library-shell .setting-field input {
+  background: var(--canvas);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.library-shell .setting-field small {
+  color: var(--muted);
+}
 .library-shell .shortcut-keys kbd {
   background: var(--paper);
   color: var(--ink);
