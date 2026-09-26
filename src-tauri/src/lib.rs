@@ -454,7 +454,7 @@ async fn system_info(
     authorize(&window, true)?;
     let settings = db.call("get_settings", Value::Null).await?;
     Ok(
-        json!({"settings":settings,"dataPath":app.state::<Runtime>().data_path.to_string_lossy(),"shortcutError":app.state::<Runtime>().lifecycle.lock().map_err(native_error)?.shortcut_error,"development":cfg!(debug_assertions)}),
+        json!({"settings":settings,"dataPath":app.state::<Runtime>().data_path.to_string_lossy(),"shortcutError":app.state::<Runtime>().lifecycle.lock().map_err(native_error)?.shortcut_error,"development":cfg!(debug_assertions),"titlePrompt":titles::TITLE_PROMPT,"titleModel":titles::TITLE_MODEL,"titleInputLimit":titles::TITLE_INPUT_LIMIT}),
     )
 }
 #[tauri::command]
@@ -570,15 +570,20 @@ async fn generate_capture_title(
     };
     let revision = idea["revision"].as_i64().unwrap_or_default();
     let capture = idea["captureText"].as_str().unwrap_or_default();
-    let Ok(title) = titles::generate(capture).await else {
-        return Ok(idea);
+    let saved = match titles::generate(capture).await {
+        Ok(title) => db
+            .call(
+                "set_generated_title",
+                json!({"id":id,"expectedTitle":fallback_title,"expectedRevision":revision,"title":title}),
+            )
+            .await?,
+        Err(_) => db
+            .call(
+                "set_title_status",
+                json!({"id":id,"expectedTitle":fallback_title,"expectedRevision":revision,"status":"fallback"}),
+            )
+            .await?,
     };
-    let saved = db
-        .call(
-            "set_generated_title",
-            json!({"id":id,"expectedTitle":fallback_title,"expectedRevision":revision,"title":title}),
-        )
-        .await?;
     if saved["revision"].as_i64() != Some(revision) {
         let _ = app.emit(
             "library-changed",

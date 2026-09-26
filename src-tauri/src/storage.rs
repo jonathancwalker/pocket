@@ -170,6 +170,7 @@ pub struct Idea {
     pub id: String,
     pub capture_text: String,
     pub title: Option<String>,
+    pub title_status: String,
     pub body: Value,
     pub body_schema_version: i64,
     pub created_at: i64,
@@ -299,7 +300,7 @@ impl Store {
         conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;")?;
         let mut version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         let new_library = version == 0;
-        if version > 2 {
+        if version > 3 {
             return Err(AppError::new("newer_database", "This library was created by a newer version. Update Pocket to open it; your data has not been changed."));
         }
         let check: String = conn.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
@@ -333,6 +334,17 @@ impl Store {
                 )?;
             }
             Self::migrate_capture_text_into_body(&mut conn)?;
+            version = 2;
+        }
+        if version == 2 {
+            if let Some(path) = path.filter(|_| !new_library) {
+                conn.backup(
+                    "main",
+                    path.with_extension(format!("before-v3-{}.sqlite3", now())),
+                    None,
+                )?;
+            }
+            conn.execute_batch(include_str!("../migrations/003.sql"))?;
         }
         Ok(Self { conn })
     }
@@ -404,6 +416,7 @@ impl Store {
             "get_idea" => Ok(serde_json::to_value(self.idea(string(&input, "id")?)?)?),
             "update_content" => self.update(&input),
             "set_generated_title" => self.set_generated_title(&input),
+            "set_title_status" => self.set_title_status(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
             "list_tags" => Ok(serde_json::to_value(self.tags()?)?),
             "create_tag" | "rename_tag" => self.save_tag(operation, &input),
@@ -552,7 +565,7 @@ impl Store {
         let t = now();
         let tx = self.conn.transaction()?;
         let body = body_from_capture(&capture_text);
-        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6)", params![d.id,capture_text,body.to_string(),t,normalized(&format!("{}\n{}",body_text(&body,1)?,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
+        tx.execute("INSERT INTO ideas(id,capture_text,body_json,body_schema_version,created_at,content_updated_at,updated_at,revision,search_text,capture_fingerprint,title_status) VALUES(?1,?2,?3,1,?4,?4,?4,1,?5,?6,'pending')", params![d.id,capture_text,body.to_string(),t,normalized(&format!("{}\n{}",body_text(&body,1)?,d.links.iter().map(|l| l.url.as_str()).collect::<Vec<_>>().join("\n"))),fingerprint])?;
         for (position, l) in d.links.iter().enumerate() {
             tx.execute("INSERT INTO idea_links(id,idea_id,url,url_key,hostname,position,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)", params![l.id,d.id,l.url,l.key,l.hostname,position,t])?;
         }
@@ -640,7 +653,7 @@ impl Store {
         Ok(())
     }
     pub fn idea(&self, id: &str) -> Result<Idea> {
-        let mut idea = self.conn.query_row("SELECT id,capture_text,title,body_json,body_schema_version,created_at,content_updated_at,updated_at,starred_at,archived_at,revision FROM ideas WHERE id=?1", [id], |r| Ok((Idea { id:r.get(0)?,capture_text:r.get(1)?,title:r.get(2)?,body:Value::Null,body_schema_version:r.get(4)?,created_at:r.get(5)?,content_updated_at:r.get(6)?,updated_at:r.get(7)?,starred_at:r.get(8)?,archived_at:r.get(9)?,revision:r.get(10)?,links:vec![],tags:vec![] },r.get::<_,String>(3)?))).optional()?.ok_or_else(|| AppError::new("missing", "This idea could not be found."))?;
+        let mut idea = self.conn.query_row("SELECT id,capture_text,title,title_status,body_json,body_schema_version,created_at,content_updated_at,updated_at,starred_at,archived_at,revision FROM ideas WHERE id=?1", [id], |r| Ok((Idea { id:r.get(0)?,capture_text:r.get(1)?,title:r.get(2)?,title_status:r.get(3)?,body:Value::Null,body_schema_version:r.get(5)?,created_at:r.get(6)?,content_updated_at:r.get(7)?,updated_at:r.get(8)?,starred_at:r.get(9)?,archived_at:r.get(10)?,revision:r.get(11)?,links:vec![],tags:vec![] },r.get::<_,String>(4)?))).optional()?.ok_or_else(|| AppError::new("missing", "This idea could not be found."))?;
         idea.0.body = serde_json::from_str(&idea.1)?;
         body_text(&idea.0.body, idea.0.body_schema_version)?;
         let mut statement = self.conn.prepare(
@@ -985,8 +998,28 @@ impl Store {
                 .join("\n")
         ));
         self.conn.execute(
-            "UPDATE ideas SET title=?1,search_text=?2,updated_at=?3,content_updated_at=?3,revision=revision+1 WHERE id=?4 AND revision=?5",
+            "UPDATE ideas SET title=?1,title_status='generated',search_text=?2,updated_at=?3,content_updated_at=?3,revision=revision+1 WHERE id=?4 AND revision=?5",
             params![title, search, now(), idea_id, expected_revision],
+        )?;
+        Ok(serde_json::to_value(self.idea(idea_id)?)?)
+    }
+    fn set_title_status(&mut self, input: &Value) -> Result<Value> {
+        let idea_id = string(input, "id")?;
+        let expected = string(input, "expectedTitle")?;
+        let expected_revision = input["expectedRevision"]
+            .as_i64()
+            .ok_or_else(|| AppError::new("validation", "The title status is not valid."))?;
+        let status = string(input, "status")?;
+        if status != "fallback" {
+            return Err(AppError::new("validation", "The title status is not valid."));
+        }
+        let idea = self.idea(idea_id)?;
+        if idea.title.as_deref() != Some(expected) || idea.revision != expected_revision {
+            return Ok(serde_json::to_value(idea)?);
+        }
+        self.conn.execute(
+            "UPDATE ideas SET title_status=?1,updated_at=?2,revision=revision+1 WHERE id=?3 AND revision=?4",
+            params![status, now(), idea_id, expected_revision],
         )?;
         Ok(serde_json::to_value(self.idea(idea_id)?)?)
     }
@@ -1209,6 +1242,7 @@ mod tests {
         let first_draft = filled(&mut s, "find a quieter way home");
         let first = s.commit(first_draft).unwrap();
         assert_eq!(first.title.as_deref(), Some("New idea 1"));
+        assert_eq!(first.title_status, "pending");
         let titled = s
             .set_generated_title(&json!({
                 "id":first.id,
@@ -1216,8 +1250,9 @@ mod tests {
                 "expectedRevision":first.revision,
                 "title":"A Quieter Way Home"
             }))
-            .unwrap();
+        .unwrap();
         assert_eq!(titled["title"], "A Quieter Way Home");
+        assert_eq!(titled["titleStatus"], "generated");
         let unchanged = s
             .set_generated_title(&json!({
                 "id":first.id,
@@ -1231,6 +1266,15 @@ mod tests {
         let second_draft = filled(&mut s, "a second thought");
         let second = s.commit(second_draft).unwrap();
         assert_eq!(second.title.as_deref(), Some("New idea 2"));
+        let fallback = s
+            .set_title_status(&json!({
+                "id":second.id,
+                "expectedTitle":"New idea 2",
+                "expectedRevision":second.revision,
+                "status":"fallback"
+            }))
+            .unwrap();
+        assert_eq!(fallback["titleStatus"], "fallback");
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {
@@ -1307,7 +1351,7 @@ mod tests {
             s.conn
                 .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
                 .unwrap(),
-            2
+            3
         );
     }
     #[test]

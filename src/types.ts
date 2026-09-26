@@ -19,6 +19,7 @@ export type Idea = {
   id: string;
   captureText: string;
   title: string | null;
+  titleStatus: 'pending' | 'generated' | 'fallback' | 'settled';
   body: JsonNode;
   bodySchemaVersion: number;
   createdAt: number;

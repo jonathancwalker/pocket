@@ -464,6 +464,28 @@
   font-style: italic;
   color: var(--muted);
 }
+.library-shell .idea-row-title.naming {
+  color: var(--muted);
+  font-style: italic;
+}
+.library-shell .idea-row-title.title-arrived {
+  animation: title-arrive 420ms ease-out;
+}
+@keyframes title-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-shell .idea-row-title.title-arrived {
+    animation: none;
+  }
+}
 .idea-excerpt {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1023,6 +1045,19 @@
 }
 .library-shell .kept-api-key .text-button {
   color: #d8b49f;
+}
+.library-shell .title-prompt {
+  color: var(--muted);
+}
+.library-shell .title-prompt summary {
+  color: var(--muted);
+}
+.library-shell .title-prompt p {
+  color: var(--muted);
+}
+.library-shell .title-prompt pre {
+  background: var(--canvas);
+  color: var(--ink);
 }
 .library-shell .shortcut-keys kbd {
   background: var(--paper);

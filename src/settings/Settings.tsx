@@ -172,6 +172,14 @@ export default function Settings({
                   </button>
                 </>
               )}
+              <details className="title-prompt">
+                <summary>Title prompt</summary>
+                <p>
+                  {info?.titleModel} · first {info?.titleInputLimit.toLocaleString()} characters of each
+                  capture
+                </p>
+                <pre>{info?.titlePrompt}</pre>
+              </details>
             </div>
             <div className="settings-section">
               <label className="toggle-row">

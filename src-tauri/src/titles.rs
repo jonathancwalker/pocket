@@ -5,6 +5,9 @@ use std::time::Duration;
 
 const SERVICE: &str = "com.jowalker.pocket";
 const ACCOUNT: &str = "openai-api-key";
+pub const TITLE_MODEL: &str = "gpt-6-luna";
+pub const TITLE_PROMPT: &str = "Write one specific, concise title for this captured idea. Return only the title, with no quotation marks, markdown, or ending punctuation. Use at most 60 characters.";
+pub const TITLE_INPUT_LIMIT: usize = 6_000;
 
 fn entry() -> Result<Entry> {
     Entry::new(SERVICE, ACCOUNT)
@@ -58,7 +61,7 @@ pub fn api_key() -> Result<String> {
 
 pub async fn generate(capture: &str) -> Result<String> {
     let key = api_key()?;
-    let context: String = capture.chars().take(6_000).collect();
+    let context: String = capture.chars().take(TITLE_INPUT_LIMIT).collect();
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(8))
         .build()
@@ -67,11 +70,11 @@ pub async fn generate(capture: &str) -> Result<String> {
         .post("https://api.openai.com/v1/responses")
         .bearer_auth(key)
         .json(&json!({
-            "model": "gpt-6-luna",
+            "model": TITLE_MODEL,
             "reasoning": {"effort": "none"},
             "max_output_tokens": 40,
             "store": false,
-            "instructions": "Write one specific, concise title for this captured idea. Return only the title, with no quotation marks, markdown, or ending punctuation. Use at most 60 characters.",
+            "instructions": TITLE_PROMPT,
             "input": context,
         }))
         .send()
