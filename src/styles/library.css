@@ -889,8 +889,7 @@
 }
 .library-shell .idea-date,
 .library-shell .tag-chip button,
-.library-shell .add-tag,
-.library-shell .capture-preview {
+.library-shell .add-tag {
   color: var(--muted);
 }
 .library-shell .tag-chip {
@@ -912,19 +911,6 @@
 .library-shell .tag-popover input {
   background: var(--canvas);
   border-color: var(--line);
-}
-.library-shell .captured-thought {
-  padding: 2px 0 3px 16px;
-  background: transparent;
-  border: 0;
-  border-left: 2px solid var(--line);
-  border-radius: 0;
-}
-.library-shell .captured-thought textarea {
-  color: var(--ink);
-  font:
-    400 16px/1.8 Georgia,
-    serif;
 }
 .library-shell .writing-surface {
   color: var(--ink);

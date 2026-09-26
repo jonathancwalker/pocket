@@ -613,6 +613,18 @@ try {
     () => evaluate('library', () => !!document.querySelector('.writing-surface')),
     'formatted editor',
   );
+  assert.equal(
+    await evaluate('library', () =>
+      Array.from(document.querySelectorAll('.writing-surface > p'))
+        .map((paragraph) => paragraph.textContent)
+        .join('\n'),
+    ),
+    poem,
+  );
+  assert.equal(
+    await evaluate('library', () => !!document.querySelector('[aria-label="Original captured thought"]')),
+    false,
+  );
   await input('library', '[aria-label="Idea title"]', 'The almost-noticed things');
   await click('library', '[aria-label="Bold · ⌘B"]');
   await evaluate('library', () => {
