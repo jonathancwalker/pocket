@@ -420,6 +420,7 @@ impl Store {
             "set_generated_title" => self.set_generated_title(&input),
             "set_title_status" => self.set_title_status(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
+            "delete_archived_idea" => self.delete_archived_idea(&input),
             "list_tags" => Ok(serde_json::to_value(self.tags()?)?),
             "create_tag" | "rename_tag" => self.save_tag(operation, &input),
             "tag_usage" => self.tag_usage(&input),
@@ -836,6 +837,22 @@ impl Store {
         };
         self.conn.execute(&format!("UPDATE ideas SET {column}=?1,updated_at=?2,revision=revision+1 WHERE id=?3 AND ({column} IS NOT NULL) != ?4"), params![if enabled {Some(now())} else {None},now(),id,enabled])?;
         Ok(serde_json::to_value(self.idea(id)?)?)
+    }
+    fn delete_archived_idea(&mut self, input: &Value) -> Result<Value> {
+        let idea_id = string(input, "id")?;
+        let idea = self.idea(idea_id)?;
+        if idea.archived_at.is_none() {
+            return Err(AppError::new(
+                "validation",
+                "Archive an idea before deleting it.",
+            ));
+        }
+        let tx = self.conn.transaction()?;
+        tx.execute("DELETE FROM idea_links WHERE idea_id=?1", [idea_id])?;
+        tx.execute("DELETE FROM idea_tags WHERE idea_id=?1", [idea_id])?;
+        tx.execute("DELETE FROM ideas WHERE id=?1 AND archived_at IS NOT NULL", [idea_id])?;
+        tx.commit()?;
+        Ok(json!({"id":idea_id}))
     }
     fn tags(&self) -> Result<Vec<Tag>> {
         let mut statement = self
@@ -1377,6 +1394,39 @@ mod tests {
         s.set_state("set_archived", &json!({"id":i.id,"enabled":false}))
             .unwrap();
         assert!(s.idea(&i.id).unwrap().starred_at.is_some());
+    }
+    #[test]
+    fn only_archived_ideas_can_be_deleted() {
+        let mut s = Store::memory();
+        let draft = filled(&mut s, "ready to let go");
+        let archived = s.commit(draft).unwrap();
+        let tag = s.tags().unwrap().remove(0);
+        s.set_tag(&json!({"id":archived.id,"tagId":tag.id,"enabled":true}))
+            .unwrap();
+        s.edit_link(
+            "add_link",
+            &json!({"id":archived.id,"link":{"id":id(),"url":"https://example.com"}}),
+        )
+        .unwrap();
+        s.set_state("set_archived", &json!({"id":archived.id,"enabled":true}))
+            .unwrap();
+        assert_eq!(
+            s.delete_archived_idea(&json!({"id":archived.id})).unwrap()["id"],
+            archived.id
+        );
+        assert!(s.idea(&archived.id).is_err());
+        assert_eq!(
+            s.conn
+                .query_row("SELECT count(*) FROM idea_links", [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+
+        let active_draft = filled(&mut s, "keep me");
+        let active = s.commit(active_draft).unwrap();
+        assert!(s
+            .delete_archived_idea(&json!({"id":active.id}))
+            .is_err());
     }
     #[test]
     fn migration_moves_legacy_capture_text_into_writing() {

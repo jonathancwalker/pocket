@@ -10,6 +10,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
+  Trash2,
   X,
 } from 'lucide-react';
 import {
@@ -59,6 +60,7 @@ export default function Browse({
   busy,
   onSelect,
   onStar,
+  onDelete,
   layout,
   setLayout,
 }: {
@@ -74,6 +76,7 @@ export default function Browse({
   busy: boolean;
   onSelect: (id: string) => void;
   onStar: (idea: Idea) => void;
+  onDelete: (idea: Idea) => void;
   layout: 'list' | 'grid';
   setLayout: (value: 'list' | 'grid') => void;
 }) {
@@ -441,7 +444,9 @@ export default function Browse({
               return (
                 <Fragment key={item.id}>
                   {showGroup && <h2 className="time-group">{group}</h2>}
-                  <article className={layout === 'list' ? 'browse-row' : 'idea-card'}>
+                  <article
+                    className={`${layout === 'list' ? 'browse-row' : 'idea-card'} ${filters.view === 'archive' ? 'archived-idea' : ''}`}
+                  >
                     <IconButton
                       label={`${item.starredAt ? 'Unstar' : 'Star'} ${displayTitle}`}
                       aria-pressed={!!item.starredAt}
@@ -451,6 +456,16 @@ export default function Browse({
                     >
                       <Star size={17} className="wonky-star" />
                     </IconButton>
+                    {filters.view === 'archive' && (
+                      <IconButton
+                        label={`Delete ${displayTitle}`}
+                        className="browse-delete"
+                        onClick={() => onDelete(item)}
+                        disabled={busy}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    )}
                     <button
                       className={`idea-row ${layout === 'grid' ? 'card-open' : 'row-open'}`}
                       disabled={busy}

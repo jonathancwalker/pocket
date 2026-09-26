@@ -226,6 +226,7 @@ async fn storage(
             | "update_content"
             | "set_starred"
             | "set_archived"
+            | "delete_archived_idea"
             | "create_tag"
             | "rename_tag"
             | "delete_tag"

@@ -211,6 +211,20 @@ export default function Library() {
       setStarBusy(false);
     }
   }
+  async function deleteArchivedIdea(item: Idea) {
+    if (!item.archivedAt) return;
+    const title = item.title?.trim() || 'Untitled';
+    if (!window.confirm(`Delete “${title}”? This cannot be undone.`)) return;
+    setNavBusy(true);
+    try {
+      await queue.current.run(() => call('delete_archived_idea', { id: item.id }));
+      await refresh();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setNavBusy(false);
+    }
+  }
   async function mutate(
     operation: string,
     input: Record<string, unknown>,
@@ -418,6 +432,7 @@ export default function Library() {
           busy={navBusy || starBusy}
           onSelect={(id) => void select(id)}
           onStar={(item) => void star(item)}
+          onDelete={(item) => void deleteArchivedIdea(item)}
           layout={layout}
           setLayout={changeLayout}
         />

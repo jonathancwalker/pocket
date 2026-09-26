@@ -422,6 +422,9 @@
   position: relative;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 38%, transparent);
 }
+.browse-row.archived-idea {
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+}
 .browse-row:last-child {
   border: 0;
 }
@@ -564,6 +567,16 @@
   right: 8px;
   top: 8px;
   z-index: 1;
+}
+.idea-card .browse-delete {
+  position: absolute;
+  right: 38px;
+  top: 8px;
+  z-index: 1;
+  color: var(--muted);
+}
+.browse-delete:hover {
+  color: var(--accent);
 }
 .library-shell .card-open {
   display: flex;
