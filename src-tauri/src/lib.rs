@@ -605,15 +605,24 @@ async fn generate_untitled_titles(
     let mut titled = 0;
     let mut failed = 0;
     for idea in candidates.as_array().into_iter().flatten() {
-        let (Some(id), Some(title), Some(capture), Some(revision)) = (
+        let (Some(id), Some(title), Some(revision)) = (
             idea["id"].as_str(),
             idea["title"].as_str(),
-            idea["captureText"].as_str(),
             idea["revision"].as_i64(),
         ) else {
             continue;
         };
-        match titles::generate(&title_settings_path, capture).await {
+        let capture = idea["captureText"].as_str().unwrap_or_default();
+        let context = if capture.trim().is_empty() {
+            storage::body_text(&idea["body"], idea["bodySchemaVersion"].as_i64().unwrap_or(1))?
+        } else {
+            capture.to_string()
+        };
+        if context.trim().is_empty() {
+            failed += 1;
+            continue;
+        }
+        match titles::generate(&title_settings_path, &context).await {
             Ok(generated) => {
                 let saved = db
                     .call(

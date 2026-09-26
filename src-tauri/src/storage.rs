@@ -1006,9 +1006,9 @@ impl Store {
     }
     fn untitled_title_candidates(&self) -> Result<Value> {
         let ids = {
-            let mut statement = self.conn.prepare(
-                "SELECT id FROM ideas WHERE title='Untitled' AND TRIM(capture_text) <> '' ORDER BY created_at DESC",
-            )?;
+            let mut statement = self
+                .conn
+                .prepare("SELECT id FROM ideas WHERE title='Untitled' ORDER BY created_at DESC")?;
             let ids = statement
                 .query_map([], |row| row.get::<_, String>(0))?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
