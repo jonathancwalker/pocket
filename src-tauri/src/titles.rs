@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 
 pub const TITLE_MODEL: &str = "gpt-6-luna";
-pub const TITLE_PROMPT: &str = "Write one specific, concise title for this captured idea. Return only the title, with no quotation marks, markdown, or ending punctuation. Use at most 60 characters.";
+pub const TITLE_PROMPT: &str = "Name this private note as if you are writing a small label on a folded piece of paper to find later. Use two to four familiar, gentle words. Stay close to the note's plain subject and prefer everyday phrasing over summary language. Examples: a note about AI moving too fast becomes 'taking it slow'; an identity note becomes 'who I’m becoming'; an idea about plants becomes 'plant names'; a weekend project becomes 'weekend plans'. Avoid academic, corporate, abstract, or poetic language. Do not use words such as attention, amid, exploring, reflection, journey, insights, or finding. Return only the label, in sentence case, with no quotation marks, markdown, or ending punctuation.";
 pub const TITLE_INPUT_LIMIT: usize = 6_000;
 
 #[derive(Deserialize, Serialize)]
@@ -105,7 +105,7 @@ pub async fn generate(path: &Path, capture: &str) -> Result<String> {
         .json(&json!({
             "model": TITLE_MODEL,
             "reasoning": {"effort": "none"},
-            "max_output_tokens": 40,
+            "max_output_tokens": 16,
             "store": false,
             "instructions": TITLE_PROMPT,
             "input": context,
@@ -136,12 +136,25 @@ pub async fn generate(path: &Path, capture: &str) -> Result<String> {
 }
 
 fn clean(title: &str) -> Option<String> {
-    let title = title
+    let mut words = title
         .trim()
         .trim_matches(['\'', '"', '“', '”'])
         .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+        .take(4)
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    while words.len() > 2
+        && matches!(
+            words.last().map(String::as_str),
+            Some("a" | "an" | "the" | "and" | "or" | "but" | "in" | "on" | "at" | "of" | "for" | "to" | "with" | "from" | "by")
+        )
+    {
+        words.pop();
+    }
+    let title = words
+        .join(" ")
+        .trim_end_matches(['.', ',', ':', ';', '!', '?'])
+        .to_string();
     if title.is_empty() {
         return None;
     }
@@ -155,8 +168,13 @@ mod tests {
     #[test]
     fn title_cleaning_keeps_one_short_line() {
         assert_eq!(
-            clean("  “A small, bright plan”  "),
-            Some("A small, bright plan".into())
+            clean("  “A small bright plan”  "),
+            Some("A small bright plan".into())
+        );
+        assert_eq!(clean("A much longer title than this"), Some("A much longer title".into()));
+        assert_eq!(
+            clean("Embodied Attention in an AI-Fast World"),
+            Some("Embodied Attention".into())
         );
         assert_eq!(clean("\n\t"), None);
         assert_eq!(clean(&"a".repeat(90)).unwrap().chars().count(), 60);

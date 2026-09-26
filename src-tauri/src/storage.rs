@@ -415,6 +415,8 @@ impl Store {
             "random_idea" => self.random_idea(&input),
             "get_idea" => Ok(serde_json::to_value(self.idea(string(&input, "id")?)?)?),
             "update_content" => self.update(&input),
+            "untitled_title_candidates" => self.untitled_title_candidates(),
+            "generated_title_candidates" => self.generated_title_candidates(),
             "set_generated_title" => self.set_generated_title(&input),
             "set_title_status" => self.set_title_status(&input),
             "set_starred" | "set_archived" => self.set_state(operation, &input),
@@ -971,7 +973,7 @@ impl Store {
     }
     fn set_generated_title(&mut self, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
-        let expected = string(input, "expectedTitle")?;
+        let expected = input.get("expectedTitle").and_then(Value::as_str);
         let expected_revision = input["expectedRevision"]
             .as_i64()
             .ok_or_else(|| AppError::new("validation", "The generated title is not valid."))?;
@@ -983,7 +985,7 @@ impl Store {
             ));
         }
         let idea = self.idea(idea_id)?;
-        if idea.title.as_deref() != Some(expected) || idea.revision != expected_revision {
+        if idea.title.as_deref() != expected || idea.revision != expected_revision {
             return Ok(serde_json::to_value(idea)?);
         }
         let search = normalized(&format!(
@@ -1002,6 +1004,27 @@ impl Store {
             params![title, search, now(), idea_id, expected_revision],
         )?;
         Ok(serde_json::to_value(self.idea(idea_id)?)?)
+    }
+    fn untitled_title_candidates(&self) -> Result<Value> {
+        self.title_candidates("title IS NULL OR title='Untitled'")
+    }
+    fn generated_title_candidates(&self) -> Result<Value> {
+        self.title_candidates("title_status='generated'")
+    }
+    fn title_candidates(&self, predicate: &str) -> Result<Value> {
+        let ids = {
+            let query = format!("SELECT id FROM ideas WHERE {predicate} ORDER BY created_at DESC");
+            let mut statement = self.conn.prepare(&query)?;
+            let ids = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids
+        };
+        let ideas = ids
+            .iter()
+            .map(|id| self.idea(id))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(serde_json::to_value(ideas)?)
     }
     fn set_title_status(&mut self, input: &Value) -> Result<Value> {
         let idea_id = string(input, "id")?;
@@ -1275,6 +1298,34 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(fallback["titleStatus"], "fallback");
+    }
+    #[test]
+    fn untitled_title_candidates_exclude_ideas_that_are_already_named() {
+        let mut s = Store::memory();
+        let untitled_draft = filled(&mut s, "an old idea worth naming");
+        let untitled = s.commit(untitled_draft).unwrap();
+        let blank_title_draft = filled(&mut s, "another old idea worth naming");
+        let blank_title = s.commit(blank_title_draft).unwrap();
+        let named_draft = filled(&mut s, "an already named idea");
+        let _named = s.commit(named_draft).unwrap();
+        s.conn
+            .execute("UPDATE ideas SET title='Untitled' WHERE id=?1", [&untitled.id])
+            .unwrap();
+        s.conn
+            .execute("UPDATE ideas SET title=NULL WHERE id=?1", [&blank_title.id])
+            .unwrap();
+        let candidates = s.untitled_title_candidates().unwrap();
+        assert_eq!(candidates.as_array().unwrap().len(), 2);
+        assert!(candidates
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["id"] == untitled.id));
+        assert!(candidates
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|candidate| candidate["id"] == blank_title.id));
     }
     #[test]
     fn late_draft_and_discard_cannot_resurrect_text_or_links() {

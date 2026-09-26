@@ -72,6 +72,42 @@ export default function Settings({
       setBusy(false);
     }
   }
+  async function nameUntitledIdeas() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.generateUntitledTitles();
+      if (result.titled === 0) {
+        setNotice(result.failed ? 'Untitled ideas could not be named' : 'No untitled ideas');
+      } else if (result.failed) {
+        setNotice(`Named ${result.titled} ideas; ${result.failed} kept their title`);
+      } else {
+        setNotice(`Named ${result.titled} ${result.titled === 1 ? 'idea' : 'ideas'}`);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function shortenGeneratedTitles() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.shortenGeneratedTitles();
+      if (result.titled === 0) {
+        setNotice(result.failed ? 'Automatic titles could not be shortened' : 'No automatic titles');
+      } else if (result.failed) {
+        setNotice(`Shortened ${result.titled} titles; ${result.failed} kept their title`);
+      } else {
+        setNotice(`Shortened ${result.titled} ${result.titled === 1 ? 'title' : 'titles'}`);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div
       className="modal-backdrop"
@@ -131,20 +167,40 @@ export default function Settings({
             <div className="settings-section">
               <div className="setting-label">Automatic titles</div>
               {hasTitleKey ? (
-                <div className="kept-api-key" role="status">
-                  <div>
-                    <strong>OpenAI API key</strong>
-                    <small>Saved locally on this Mac</small>
+                <>
+                  <div className="kept-api-key" role="status">
+                    <div>
+                      <strong>OpenAI API key</strong>
+                      <small>Saved locally on this Mac</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={busy}
+                      onClick={() => void clearTitleKey()}
+                    >
+                      Remove key
+                    </button>
                   </div>
                   <button
                     type="button"
-                    className="text-button"
+                    className="text-button title-untitled-button"
                     disabled={busy}
-                    onClick={() => void clearTitleKey()}
+                    onClick={() => void nameUntitledIdeas()}
                   >
-                    Remove key
+                    {busy ? <LoaderCircle size={14} className="spin" /> : null}
+                    Name untitled ideas
                   </button>
-                </div>
+                  <button
+                    type="button"
+                    className="text-button title-untitled-button"
+                    disabled={busy}
+                    onClick={() => void shortenGeneratedTitles()}
+                  >
+                    {busy ? <LoaderCircle size={14} className="spin" /> : null}
+                    Shorten auto titles
+                  </button>
+                </>
               ) : (
                 <>
                   <label className="setting-field">

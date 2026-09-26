@@ -1175,6 +1175,14 @@ a {
   color: #8a5e4b;
   white-space: nowrap;
 }
+.title-untitled-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #657553;
+  font-size: 12px;
+}
 .settings-section > input {
   width: 100%;
   padding: 10px 12px;

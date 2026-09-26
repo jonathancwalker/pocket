@@ -594,6 +594,73 @@ async fn generate_capture_title(
     Ok(saved)
 }
 #[tauri::command]
+async fn generate_title_candidates(
+    app: &AppHandle,
+    db: &Database,
+    candidates_operation: &str,
+    event_operation: &str,
+) -> Result<Value> {
+    let candidates = db.call(candidates_operation, Value::Null).await?;
+    let title_settings_path = app.state::<Runtime>().title_settings_path.clone();
+    let mut titled = 0;
+    let mut failed = 0;
+    for idea in candidates.as_array().into_iter().flatten() {
+        let (Some(id), Some(revision)) = (
+            idea["id"].as_str(),
+            idea["revision"].as_i64(),
+        ) else {
+            continue;
+        };
+        let original_title = idea["title"].as_str();
+        let capture = idea["captureText"].as_str().unwrap_or_default();
+        let context = if capture.trim().is_empty() {
+            storage::body_text(&idea["body"], idea["bodySchemaVersion"].as_i64().unwrap_or(1))?
+        } else {
+            capture.to_string()
+        };
+        if context.trim().is_empty() {
+            failed += 1;
+            continue;
+        }
+        match titles::generate(&title_settings_path, &context).await {
+            Ok(generated) => {
+                let saved = db
+                    .call(
+                        "set_generated_title",
+                        json!({"id":id,"expectedTitle":idea["title"],"expectedRevision":revision,"title":generated}),
+                    )
+                    .await?;
+                if saved["title"].as_str() != original_title {
+                    titled += 1;
+                }
+            }
+            Err(_) => failed += 1,
+        }
+    }
+    if titled > 0 {
+        let _ = app.emit("library-changed", json!({"operation":event_operation}));
+    }
+    Ok(json!({"titled":titled,"failed":failed}))
+}
+#[tauri::command]
+async fn generate_untitled_titles(
+    window: WebviewWindow,
+    app: AppHandle,
+    db: State<'_, Database>,
+) -> Result<Value> {
+    authorize(&window, true)?;
+    generate_title_candidates(&app, &db, "untitled_title_candidates", "generate_untitled_titles").await
+}
+#[tauri::command]
+async fn shorten_generated_titles(
+    window: WebviewWindow,
+    app: AppHandle,
+    db: State<'_, Database>,
+) -> Result<Value> {
+    authorize(&window, true)?;
+    generate_title_candidates(&app, &db, "generated_title_candidates", "shorten_generated_titles").await
+}
+#[tauri::command]
 fn open_reference(window: WebviewWindow, app: AppHandle, url: String) -> Result<()> {
     authorize(&window, false)?;
     let valid = storage::reference(&uuid::Uuid::new_v4().to_string(), &url)?;
@@ -659,7 +726,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent,Some(vec!["--background"])))
         .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app,_,event| {handle_shortcut(app,event.state()==ShortcutState::Pressed);}).build())
-        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,title_key_status,save_title_key,clear_title_key,generate_capture_title,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
+        .invoke_handler(tauri::generate_handler![storage,window_ready,window_action,quit_ack,system_info,update_settings,title_key_status,save_title_key,clear_title_key,generate_capture_title,generate_untitled_titles,shorten_generated_titles,open_reference,export_library,shortcut_recording,capture_fade,capture_finished,
             #[cfg(feature = "webdriver")]
             capture_surface
         ])
