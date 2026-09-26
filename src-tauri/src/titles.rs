@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::{path::Path, time::Duration};
 
 pub const TITLE_MODEL: &str = "gpt-6-luna";
-pub const TITLE_PROMPT: &str = "Write a specific title in two to four words. Return only the title, with no quotation marks, markdown, or ending punctuation.";
+pub const TITLE_PROMPT: &str = "Write a specific title in exactly two to four standalone words. Never end with an article or connector such as a, an, the, and, in, of, or to. Return only the title, with no quotation marks, markdown, or ending punctuation.";
 pub const TITLE_INPUT_LIMIT: usize = 6_000;
 
 #[derive(Deserialize, Serialize)]
@@ -136,12 +136,22 @@ pub async fn generate(path: &Path, capture: &str) -> Result<String> {
 }
 
 fn clean(title: &str) -> Option<String> {
-    let title = title
+    let mut words = title
         .trim()
         .trim_matches(['\'', '"', '“', '”'])
         .split_whitespace()
         .take(4)
-        .collect::<Vec<_>>()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    while words.len() > 2
+        && matches!(
+            words.last().map(String::as_str),
+            Some("a" | "an" | "the" | "and" | "or" | "but" | "in" | "on" | "at" | "of" | "for" | "to" | "with" | "from" | "by")
+        )
+    {
+        words.pop();
+    }
+    let title = words
         .join(" ")
         .trim_end_matches(['.', ',', ':', ';', '!', '?'])
         .to_string();
@@ -162,6 +172,10 @@ mod tests {
             Some("A small bright plan".into())
         );
         assert_eq!(clean("A much longer title than this"), Some("A much longer title".into()));
+        assert_eq!(
+            clean("Embodied Attention in an AI-Fast World"),
+            Some("Embodied Attention".into())
+        );
         assert_eq!(clean("\n\t"), None);
         assert_eq!(clean(&"a".repeat(90)).unwrap().chars().count(), 60);
     }
