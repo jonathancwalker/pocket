@@ -8,8 +8,8 @@
   --selected: #d0d8be;
   --rose-fabric: #e7cfc1;
   --thread: #7a8466;
-  --grid: #7e956f20;
-  --weave: #90795d08;
+  --grid: #7e956f0d;
+  --weave: #90795d04;
   --accent: #a3664b;
   --gold: #9a762f;
   --gold-fill: #ead49a;
@@ -38,13 +38,9 @@
   z-index: -1;
   pointer-events: none;
   background-image:
-    repeating-linear-gradient(0deg, var(--weave) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(90deg, var(--weave) 0 1px, transparent 1px 4px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px),
     linear-gradient(var(--grid) 1px, transparent 1px);
   background-size:
-    auto,
-    auto,
     23px 23px,
     23px 23px;
 }
@@ -95,7 +91,7 @@
 .browse-header {
   padding: 6px 34px 8px;
   background: var(--paper);
-  border-bottom: 1px dashed var(--thread);
+  border-bottom: 1px solid var(--line);
   position: relative;
   z-index: 10;
   flex-shrink: 0;
@@ -178,9 +174,7 @@
   background: var(--linen);
   box-shadow: 0 1px 2px var(--shadow);
 }
-.library-shell .library-views button.active::after,
-.cloth::after,
-.library-shell .tag-chip::after {
+.library-shell .library-views button.active::after {
   content: '';
   position: absolute;
   inset: 3px;
@@ -238,7 +232,7 @@
 }
 .cloth::after,
 .library-shell .tag-chip::after {
-  border-color: var(--tag-color, var(--thread));
+  content: none;
 }
 .type-labels {
   display: flex;
@@ -277,7 +271,7 @@
   margin: 0;
   padding: 12px 0;
   border: 0;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   min-width: 0;
 }
 .filter-group legend {
@@ -409,9 +403,7 @@
   color: var(--muted);
 }
 .time-group::after {
-  content: '';
-  flex: 1;
-  border-top: 1px dashed var(--line);
+  content: none;
 }
 .browse-row + .time-group {
   margin-top: 12px;
@@ -422,7 +414,7 @@
   gap: 5px;
   align-items: center;
   position: relative;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 38%, transparent);
 }
 .browse-row:last-child {
   border: 0;
@@ -848,7 +840,7 @@
 .pocket-another {
   padding: 9px 4px 0;
   margin-top: 10px;
-  border-top: 1px dashed var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
   width: 100%;
 }
 .library-shell .idea-pane {
@@ -922,7 +914,7 @@
   color: var(--muted);
 }
 .library-shell .editor-toolbar {
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
 .library-shell .editor-toolbar .icon-button {
   color: var(--muted);
@@ -950,7 +942,7 @@
 .library-shell .resources {
   background: transparent;
   border: 0;
-  border-top: 1px dashed var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   border-radius: 0;
   margin-top: 36px;
   padding: 20px 0 0;
@@ -983,7 +975,7 @@
     serif;
 }
 .library-shell .settings-section {
-  border-top: 1px dashed var(--line);
+  border: 0;
 }
 .library-shell .settings-section > .toggle-row:first-child {
   margin-top: 0;
@@ -1015,7 +1007,7 @@
   color: var(--muted);
 }
 .library-shell .kept-api-key {
-  border-color: var(--line);
+  border: 0;
 }
 .library-shell .kept-api-key strong {
   color: var(--ink);
@@ -1330,7 +1322,7 @@
 .editor-current-note {
   padding-bottom: 10px;
   margin-bottom: 10px;
-  border-bottom: 1px dashed var(--line);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
 .editor-current-note .editor-sidebar-caption {
   padding: 3px 9px 5px;
@@ -1357,7 +1349,7 @@
   align-items: center;
   gap: 4px;
   padding: 8px 15px 0;
-  border-top: 1px dashed var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
 .editor-sidebar-pages > span {
   margin-right: auto;
