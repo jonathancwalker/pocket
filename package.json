@@ -1,0 +1,41 @@
+{
+  "name": "idea-capture",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "node scripts/tauri.mjs",
+    "desktop": "node scripts/tauri.mjs dev",
+    "package": "node scripts/package.mjs",
+    "icons": "node scripts/icons.mjs",
+    "test": "vitest run",
+    "check": "tsc -b",
+    "test:rust": "node scripts/cargo.mjs test --manifest-path src-tauri/Cargo.toml --lib",
+    "lint:rust": "node scripts/cargo.mjs clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "test:desktop:build": "node scripts/tauri.mjs build --debug --features webdriver --no-bundle",
+    "test:desktop": "node scripts/desktop-test.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tiptap/extension-placeholder": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
+    "lucide-react": "0.468.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "prettier": "3.9.8",
+    "typescript": "5.9.3",
+    "vite": "6.4.3",
+    "vitest": "5.0.1"
+  }
+}

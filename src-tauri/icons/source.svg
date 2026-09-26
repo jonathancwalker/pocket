@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Pocket — a notebook slip tucked into a stitched pocket</title>
+  <defs>
+    <linearGradient id="clay" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#d2a487"/><stop offset="1" stop-color="#ba8265"/>
+    </linearGradient>
+    <linearGradient id="sage" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#818d72"/><stop offset="1" stop-color="#788569"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff9e8" stop-opacity=".42"/><stop offset=".6" stop-color="#fff9e8" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="tile-shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#58482b" flood-opacity=".25"/>
+    </filter>
+    <filter id="paper-shadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="1.8" stdDeviation="2" flood-color="#2b2b20" flood-opacity=".20"/>
+    </filter>
+    <filter id="pocket-shadow" x="-25%" y="-25%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="4" stdDeviation="2.7" flood-color="#272b20" flood-opacity=".26"/>
+    </filter>
+    <pattern id="linen" width="3" height="3" patternUnits="userSpaceOnUse">
+      <path d="M0 .5H3" stroke="#fff9e8" stroke-opacity=".08"/>
+      <path d="M.5 0V3" stroke="#151d10" stroke-opacity=".07"/>
+    </pattern>
+    <path id="pocket" d="M27.9 53.76H99.2Q103.68 53.76 103.68 58.2V85.76Q103.68 108.8 80.64 108.8H43.52Q24.32 108.8 24.32 89.6V57.3Q24.32 53.76 27.9 53.76Z"/>
+  </defs>
+  <g transform="translate(64 64) scale(7)">
+    <rect width="128" height="128" rx="28.8" fill="url(#clay)" filter="url(#tile-shadow)"/>
+    <rect x=".5" y=".5" width="127" height="127" rx="28.3" fill="none" stroke="url(#rim)"/>
+    <g transform="rotate(-9 62.08 54.4)">
+      <path d="M33.92 15.36H80.64L93.44 28.16V91.04Q93.44 93.44 91.04 93.44H33.12Q30.72 93.44 30.72 91.04V18.56Q30.72 15.36 33.92 15.36Z" fill="#fff5dd" filter="url(#paper-shadow)"/>
+      <path d="M39 33.28H85.12M39 46.08H85.12M39 58.88H85.12M39 71.68H85.12M39 84.48H85.12" fill="none" stroke="#859791" stroke-opacity=".44" stroke-width="1.15"/>
+      <path d="M80.64 15.36V25.6Q80.64 28.16 83.2 28.16H93.44Z" fill="#dacbab"/>
+    </g>
+    <g transform="rotate(2 64 81.28)">
+      <use href="#pocket" fill="url(#sage)" filter="url(#pocket-shadow)"/>
+      <use href="#pocket" fill="url(#linen)"/>
+      <path d="M28.1 54.5H99.1" fill="none" stroke="#eef0d9" stroke-opacity=".28" stroke-linecap="round"/>
+      <path d="M32.1 59.9H95.9Q97.54 59.9 97.54 62V85.52Q97.54 102.66 80.4 102.66H43.9Q30.46 102.66 30.46 89.22V61.9Q30.46 59.9 32.1 59.9Z" fill="none" stroke="#ecdfbc" stroke-opacity=".85" stroke-width="1.15" stroke-dasharray="2.6 2.6" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

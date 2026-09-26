@@ -1,0 +1,6 @@
+{
+  "identifier": "app-windows",
+  "description": "Local bundled app windows; data commands also check their calling window in Rust.",
+  "windows": ["capture", "library"],
+  "permissions": ["core:event:default", "core:window:allow-start-dragging"]
+}
