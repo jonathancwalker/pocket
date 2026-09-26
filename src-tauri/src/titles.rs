@@ -1,5 +1,5 @@
 use crate::storage::{AppError, Result};
-use keyring::Entry;
+use keyring::{Entry, Error as KeyringError};
 use serde_json::{json, Value};
 use std::time::Duration;
 
@@ -34,12 +34,13 @@ pub fn save_api_key(key: &str) -> Result<()> {
 }
 
 pub fn clear_api_key() -> Result<()> {
-    entry()?.delete_credential().map_err(|_| {
-        AppError::new(
+    match entry()?.delete_credential() {
+        Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
+        Err(_) => Err(AppError::new(
             "keychain",
             "Pocket could not remove your API key from the system keychain.",
-        )
-    })
+        )),
+    }
 }
 
 pub fn api_key() -> Result<String> {
