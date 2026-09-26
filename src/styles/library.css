@@ -232,7 +232,13 @@
 }
 .cloth::after,
 .library-shell .tag-chip::after {
-  content: none;
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px dashed var(--tag-color, var(--thread));
+  border-radius: inherit;
+  opacity: 0.65;
+  pointer-events: none;
 }
 .type-labels {
   display: flex;
