@@ -74,21 +74,27 @@ fn string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
         .ok_or_else(|| AppError::new("validation", "A required value is missing."))
 }
 
-fn capture_tag_directive(text: &str) -> (Option<String>, String) {
-    let Some(after_open) = text.strip_prefix('[') else {
-        return (None, text.into());
-    };
-    let Some(close) = after_open.find(']') else {
-        return (None, text.into());
-    };
-    let tag = after_open[..close].trim();
-    if tag.is_empty() || tag.contains(['\n', '\r']) || tag.chars().count() > 60 {
-        return (None, text.into());
+fn capture_tag_directives(text: &str) -> (Vec<String>, String) {
+    let mut remaining = text;
+    let mut tags = Vec::new();
+    while let Some(after_open) = remaining.strip_prefix('[') {
+        let Some(close) = after_open.find(']') else {
+            break;
+        };
+        let tag = after_open[..close].trim();
+        if tag.is_empty() || tag.contains(['\n', '\r']) || tag.chars().count() > 60 {
+            break;
+        }
+        if !tags.iter().any(|saved: &String| normalized(saved) == normalized(tag)) {
+            tags.push(tag.into());
+        }
+        remaining = after_open[close + 1..].trim_start();
     }
-    (
-        Some(tag.into()),
-        after_open[close + 1..].trim_start().into(),
-    )
+    if tags.is_empty() {
+        (vec![], text.into())
+    } else {
+        (tags, remaining.into())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -539,7 +545,7 @@ impl Store {
     }
     pub fn commit(&mut self, mut d: Draft) -> Result<Idea> {
         self.validate_draft(&mut d)?;
-        let (tag_name, capture_text) = capture_tag_directive(&d.text);
+        let (tag_names, capture_text) = capture_tag_directives(&d.text);
         if capture_text.trim().is_empty() && d.links.is_empty() {
             return Err(AppError::new(
                 "empty",
@@ -572,7 +578,7 @@ impl Store {
         for (position, l) in d.links.iter().enumerate() {
             tx.execute("INSERT INTO idea_links(id,idea_id,url,url_key,hostname,position,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?7)", params![l.id,d.id,l.url,l.key,l.hostname,position,t])?;
         }
-        if let Some(tag) = tag_name {
+        for tag in tag_names {
             Self::attach_capture_tag(&tx, &d.id, &tag)?;
         }
         let title = Self::fallback_title(&tx, &d.id)?;
@@ -1240,7 +1246,7 @@ mod tests {
     #[test]
     fn capture_prefix_assigns_existing_tags_and_creates_new_types() {
         let mut s = Store::memory();
-        let mut d = filled(&mut s, "[pOeM] a small line");
+        let mut d = filled(&mut s, "[pOeM] [Video] a small line");
         let poem = s.commit(d.clone()).unwrap();
         assert_eq!(poem.capture_text, "a small line");
         assert_eq!(poem.title.as_deref(), Some("[Poem] Idea 1"));
@@ -1249,7 +1255,7 @@ mod tests {
                 .iter()
                 .map(|tag| (tag.axis.as_str(), tag.name.as_str()))
                 .collect::<Vec<_>>(),
-            vec![("type", "Poem")]
+            vec![("type", "Poem"), ("type", "Video")]
         );
         assert_eq!(s.commit(d).unwrap().id, poem.id);
 
@@ -1271,10 +1277,14 @@ mod tests {
         assert_eq!(second_sketch.tags[0].id, first_sketch.tags[0].id);
 
         assert_eq!(
-            capture_tag_directive("[  ] ordinary thought"),
-            (None, "[  ] ordinary thought".into())
+            capture_tag_directives("[  ] ordinary thought"),
+            (vec![], "[  ] ordinary thought".into())
         );
-        assert_eq!(capture_tag_directive("[Poem"), (None, "[Poem".into()));
+        assert_eq!(capture_tag_directives("[Poem"), (vec![], "[Poem".into()));
+        assert_eq!(
+            capture_tag_directives("[Poem] [poem] [Video] a small line"),
+            (vec!["Poem".into(), "Video".into()], "a small line".into())
+        );
     }
     #[test]
     fn generated_titles_replace_only_the_capture_fallback() {
