@@ -10,6 +10,7 @@
     "tauri": "node scripts/tauri.mjs",
     "desktop": "node scripts/tauri.mjs dev",
     "package": "node scripts/package.mjs",
+    "package:dmg": "node scripts/package-dmg.mjs",
     "icons": "node scripts/icons.mjs",
     "test": "vitest run",
     "check": "tsc -b",
