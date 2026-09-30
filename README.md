@@ -2,6 +2,45 @@
 
 A local Mac app for capturing and developing ideas. Built with Tauri, React, TypeScript, Tiptap, and SQLite. The product specification is in [MVP-PLAN.md](MVP-PLAN.md).
 
+## Class project overview
+
+### Intended audience
+
+Pocket is for people who regularly have ideas away from their usual notes system: students, writers, makers, and anyone who wants to catch a thought before it disappears, then return to develop it later.
+
+### Problem and opportunity
+
+Opening a full notes app or finding a physical journal can add just enough friction for a fleeting idea to be lost. Pocket makes first capture nearly weightless, while keeping enough structure—writing space, tags, links, starring, and archiving—to turn a small thought into something worth returning to.
+
+### Primary user flow
+
+Press the global shortcut to open Pocket’s small paper capture surface, write an idea, and save it. Pocket confirms the save with its tuck animation, assigns an immediate fallback title, and optionally refines that title in the background. Open the library later to browse or search ideas, add rich-text detail and references, apply Type or Topic tags, star items worth revisiting, and archive finished ideas.
+
+### Technical stack
+
+- **Desktop:** Tauri 2 and Rust for macOS windows, global shortcuts, native actions, and the local command layer.
+- **Interface:** React 19, TypeScript, Vite, CSS, Lucide, and Tiptap rich-text editing.
+- **Data:** SQLite, held locally on the user’s Mac.
+
+### API used
+
+Pocket can use the OpenAI API with a user-provided key to generate short, warm titles for new captures. The API enhances the library’s scanability without blocking capture: every idea receives a local fallback title first, and a failed or unavailable API request leaves that fallback in place.
+
+### Public release
+
+The current downloadable macOS build is available on the [Pocket v0.1.0 release page](https://github.com/jonathancwalker/pocket/releases/tag/v0.1.0).
+
+### Known limitations
+
+- Pocket is currently macOS-only and stores its library locally; it does not sync across devices or support Windows or phone capture.
+- The public v0.1.0 build is ad-hoc signed rather than notarized, so macOS may require recipients to Control-click and choose **Open** on first launch.
+- Global shortcut behavior depends on macOS permissions and can vary around full-screen apps and multi-display setups.
+- Automatic titles require a user-supplied OpenAI API key and an internet connection.
+
+### Next improvements
+
+The next product steps are hosted, authenticated sync; browser and mobile capture; Keychain storage for API keys before broader distribution; semantic search and clustering; attachments; and a notarized public macOS release.
+
 ## Use the app
 
 Build a standalone application with `npm run package`. The result is `src-tauri/target/release/bundle/macos/Pocket.app`; open it in Finder or move it to Applications. The packaging script ad-hoc signs and verifies the local bundle.
