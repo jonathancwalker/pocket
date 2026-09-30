@@ -1,14 +1,13 @@
 # Pocket
 
-Pocket is a small macOS app for catching an idea before it disappears, then returning to develop it later.
+Pocket is a small macOS app for catching an idea before it disappears, then returning to expand on it later.
 
 ## Intended audience
 
-Pocket is for students, writers, makers, and anyone who has ideas away from their usual notes system and wants a lighter way to hold onto them.
-
+Pocket is for anyone with something they wanna come back to- students, writers, makers, anyone!
 ## Problem and opportunity
 
-Opening a full notes app or finding a physical journal adds enough friction for a fleeting thought to be lost. Pocket makes first capture quick, then provides space to add writing, links, tags, and a little structure when there is more time.
+Opening an unstructured notes app or finding a physical journal adds enough friction for a fleeting thought to be lost, but Pocket makes first capture quick/low effort, then provides space to add writing, links, tags, and a other details when time allows.
 
 ## Primary user flow
 
@@ -22,24 +21,11 @@ Use Pocket’s global shortcut to open a small paper capture surface, write an i
 
 ## API used
 
-Pocket optionally uses the OpenAI API with a user-provided key to create a short title for each new capture. Title generation happens after the idea is saved, so a failed or unavailable request simply leaves Pocket’s local fallback title in place.
+Pocket optionally uses the OpenAI API with a user-provided key to create a short title for each new capture. If no key is supplied, there's fallback naming conventions to differentiate ideas until the user gives them a more suitable name.
 
 ## Run locally
 
 Requires Node 22.12 or newer, Rust stable, and Apple’s Command Line Tools.
-
-```sh
-npm ci
-npm run desktop
-```
-
-To create a shareable Mac build:
-
-```sh
-npm run package:dmg
-```
-
-This creates `dist/Pocket-<version>.dmg`.
 
 ## Public release
 
@@ -53,4 +39,4 @@ This creates `dist/Pocket-<version>.dmg`.
 
 ## Next improvements
 
-Hosted sync, browser and mobile capture, Keychain-backed API-key storage, semantic search, attachments, and a notarized macOS release.
+Hosting a DB so I can sync across devices, browser-based and mobile capture support, Keychain-backed API-key storage (my local version is NOT secure lol), semantic search for ideas, adding attachments, and more official mac release!
