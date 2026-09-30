@@ -4,7 +4,9 @@ A local Mac app for capturing and developing ideas. Built with Tauri, React, Typ
 
 ## Use the app
 
-Build a standalone application with `npm run package`. The result is `src-tauri/target/release/bundle/macos/Pocket.app`; open it in Finder or move it to Applications. The packaging script ad-hoc signs and verifies the local bundle. This personal-use build is not notarized for public distribution.
+Build a standalone application with `npm run package`. The result is `src-tauri/target/release/bundle/macos/Pocket.app`; open it in Finder or move it to Applications. The packaging script ad-hoc signs and verifies the local bundle.
+
+To share a downloadable Mac build, run `npm run package:dmg`. It rebuilds Pocket and creates `dist/Pocket-<version>.dmg`, ready to upload to a GitHub Release. This lightweight build is not notarized, so first-time recipients may need to Control-click Pocket and choose **Open** to approve it in macOS.
 
 - **⌘⇧Space** is the default capture shortcut. In Settings, click the shortcut field and press the combination you want; keycaps show the recorded keys, then **Save** applies it. Escape cancels recording. Your existing saved shortcut is preserved across updates.
 - Press your capture shortcut twice within **450 ms** to open the full library. You can keep the modifier held and tap the letter twice. Holding a key down does not count as a second press.
